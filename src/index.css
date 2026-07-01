@@ -1,0 +1,56 @@
+@import "leaflet/dist/leaflet.css";
+@import "tailwindcss";
+
+/* ปรับแต่ง Popup ของ Leaflet ให้ไม่มีขอบขาวกวนใจ (เพื่อให้เหมือน Figma) */
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+.leaflet-popup-content {
+  margin: 0;
+  width: 250px !important;
+}
+
+/* ลบขอบขาวของ Leaflet Popup ออก เพื่อให้การ์ดแสดงขอบโค้งมนตามที่เราเขียนใน Tailwind */
+.leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+/* ปรับแต่งหัว (Thumb) ของตัวเลื่อนระดับเสียงให้เป็นวงกลมสีฟ้า ไม่มีขอบ */
+.custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #48A0D8; /* สีฟ้าตามดีไซน์ */
+  cursor: pointer;
+}
+.custom-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #48A0D8;
+  cursor: pointer;
+  border: none;
+}
+
+/* ลบขอบขาว Popup ของ Leaflet */
+.custom-cctv-popup .leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.custom-cctv-popup .leaflet-popup-content {
+  margin: 0 !important;
+}
+.custom-cctv-popup .leaflet-popup-tip {
+  display: none !important;
+}
