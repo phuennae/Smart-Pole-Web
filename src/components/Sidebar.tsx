@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom'; // ตรวจสอบให้แน่ใจว่า import นี้มีอยู่
 import { 
   Home, Volume2, Mic, Video, User, 
   Settings, Users, LogOut, ChevronDown, ChevronUp 
@@ -32,12 +32,18 @@ export default function Sidebar() {
 
       {/* ส่วนล่าง: Admin Profile & Dropdown */}
       <div className="relative mt-auto flex flex-col items-center justify-center pb-2">
-        {/* เมนู dropdown (จะแสดงเมื่อ isMenuOpen เป็น true) */}
+        {/* เมนู dropdown */}
         {isMenuOpen && (
           <div className="absolute bottom-12 bg-white text-gray-800 rounded-lg shadow-[0_0_15px_rgba(0,0,0,0.2)] p-1.5 w-44 z-50">
-            <button className="flex items-center gap-2 w-full p-2 hover:bg-gray-100 rounded-md text-[13px] font-bold transition-colors">
+            {/* เปลี่ยน button เป็น Link เพื่อนำทางไปหน้า /add-node */}
+            <Link 
+              to="/add-node" 
+              className="flex items-center gap-2 w-full p-2 hover:bg-gray-100 rounded-md text-[13px] font-bold transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
               <Settings size={16} className="text-gray-600" /> จัดการอุปกรณ์
-            </button>
+            </Link>
+            
             <button className="flex items-center gap-2 w-full p-2 hover:bg-gray-100 rounded-md text-[13px] font-bold transition-colors">
               <Users size={16} className="text-gray-600" /> จัดการสิทธิ์
             </button>

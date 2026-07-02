@@ -1,26 +1,19 @@
 import 'leaflet/dist/leaflet.css';
-import { useState, ChangeEvent } from 'react';
+import { useState } from 'react'; // ลบ ChangeEvent ออกเพื่อแก้ Error
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2 } from 'lucide-react';
+import { useNodes, type NodeItem } from '../context/NodeContext';
 
 // --- Types ---
-interface AudioNode { id: string; name: string; lat: number; lng: number; status: 'online' | 'offline'; volume: number; }
 interface Schedule { id: number; days: string; time: string; file: string; volume: number; }
-
-const mockAudioNodes: AudioNode[] = [
-  { id: 'node-1', name: 'Node 1', lat: 18.7951, lng: 98.9525, status: 'online', volume: 82 },
-  { id: 'node-2', name: 'Node 2', lat: 18.7958, lng: 98.9520, status: 'offline', volume: 62 },
-  { id: 'node-3', name: 'Node 3', lat: 18.7945, lng: 98.9515, status: 'online', volume: 80 },
-  { id: 'node-4', name: 'Node 4', lat: 18.7960, lng: 98.9510, status: 'online', volume: 82 }
-];
 
 const smartPoleIcon = new Icon({ iconUrl: '/pole.png', iconSize: [40, 80], iconAnchor: [20, 80], popupAnchor: [0, -80] });
 
 // --- Main Page Component ---
 export default function AudioControl() {
-  const [nodes] = useState<AudioNode[]>(mockAudioNodes);
-  const [scheduleNode, setScheduleNode] = useState<AudioNode | null>(null);
+  const { nodes } = useNodes(); // ดึงข้อมูล nodes ทั้งหมดจาก Context
+  const [scheduleNode, setScheduleNode] = useState<NodeItem | null>(null);
 
   return (
     <main className="flex-1 h-screen relative bg-gray-100 font-sans">
@@ -40,8 +33,9 @@ export default function AudioControl() {
 }
 
 // --- Audio Card Sub-component ---
-function AudioCard({ node, onOpenSchedule }: { node: AudioNode, onOpenSchedule: () => void }) {
-  const [volume, setVolume] = useState(node.volume);
+// เปลี่ยน Type จาก AudioNode เป็น NodeItem ที่มาจาก Context
+function AudioCard({ node, onOpenSchedule }: { node: NodeItem, onOpenSchedule: () => void }) {
+  const [volume, setVolume] = useState(node.volume ?? 80); // ถ้าไม่มี volume ให้ default เป็น 80
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedFile, setSelectedFile] = useState('');
 
@@ -85,8 +79,8 @@ function AudioCard({ node, onOpenSchedule }: { node: AudioNode, onOpenSchedule: 
   );
 }
 
-// --- Schedule Modal (ดีไซน์ใหม่ โค้งมน มินิมอล) ---
-function ScheduleModal({ node, onClose }: { node: AudioNode, onClose: () => void }) {
+// --- Schedule Modal ---
+function ScheduleModal({ node, onClose }: { node: NodeItem, onClose: () => void }) {
   const [schedules, setSchedules] = useState<Schedule[]>([{ id: 1, days: 'ทุกวัน', time: '08:00', file: 'เพลงชาติไทย.mp3', volume: 80 }]);
   const [newDays, setNewDays] = useState('ทุกวัน');
   const [newTime, setNewTime] = useState('');
@@ -101,17 +95,14 @@ function ScheduleModal({ node, onClose }: { node: AudioNode, onClose: () => void
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
-      {/* Container หลัก: โค้งมน 2xl */}
       <div className="bg-[#EAEAEA] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden border border-gray-300">
         
-        {/* Header สีฟ้า */}
         <div className="bg-[#48A0D8] p-5 flex justify-between items-center text-white">
           <h2 className="text-2xl font-bold flex items-center gap-3"><Calendar size={24} /> ตารางเวลา : {node.name}</h2>
           <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={24} /></button>
         </div>
         
         <div className="p-8">
-          {/* พื้นหลัง Input โค้งมนเหมือนในรูป */}
           <div className="bg-gray-200 p-6 rounded-2xl grid grid-cols-4 gap-4 items-end mb-8">
              <div>
                 <label className="block text-xs font-bold mb-1.5 ml-1">Days / วัน</label>
@@ -136,12 +127,10 @@ function ScheduleModal({ node, onClose }: { node: AudioNode, onClose: () => void
              </div>
           </div>
           
-          {/* ปุ่ม Save ทรงแคปซูลตามดีไซน์ */}
           <button onClick={handleSave} className="bg-[#519455] text-white px-10 py-2 rounded-full font-bold mx-auto block hover:bg-green-700 transition-all shadow-md">
             Save / บันทึก
           </button>
 
-          {/* ตารางข้อมูล */}
           <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
              <div className="grid grid-cols-12 p-4 font-bold text-sm bg-gray-50 border-b border-gray-200">
                <div className="col-span-3">Days / วัน</div>

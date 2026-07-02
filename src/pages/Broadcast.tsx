@@ -3,22 +3,10 @@ import { useState } from 'react';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import { Mic } from 'lucide-react';
-
-interface BroadcastNode {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-}
-
-const mockNodes: BroadcastNode[] = [
-  { id: 'node-1', name: 'Node 1', lat: 18.7951, lng: 98.9525 },
-  { id: 'node-2', name: 'Node 2', lat: 18.7958, lng: 98.9520 },
-  { id: 'node-3', name: 'Node 3', lat: 18.7945, lng: 98.9515 },
-  { id: 'node-4', name: 'Node 4', lat: 18.7960, lng: 98.9510 }
-];
+import { useNodes } from '../context/NodeContext'; // นำเข้าฮุกความจริงชุดเดียวของระบบ
 
 export default function Broadcast() {
+  const { nodes } = useNodes(); // ดึงข้อมูลของทุกเสามาจาก Context ส่วนกลาง
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
 
   const toggleNode = (id: string) => {
@@ -36,15 +24,27 @@ export default function Broadcast() {
           <Mic size={20} /> Start / เริ่มประกาศ
         </button>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => setSelectedNodes(new Set(mockNodes.map(n => n.id)))} className="text-[11px] font-bold border border-gray-300 py-2 rounded-lg hover:bg-gray-50">เลือกทั้งหมด</button>
-          <button onClick={() => setSelectedNodes(new Set())} className="text-[11px] font-bold border border-gray-300 py-2 rounded-lg hover:bg-gray-50">ยกเลิกทั้งหมด</button>
+          {/* เปลี่ยนจาก mockNodes เป็น nodes จาก Context */}
+          <button 
+            onClick={() => setSelectedNodes(new Set(nodes.map(n => n.id)))} 
+            className="text-[11px] font-bold border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            เลือกทั้งหมด
+          </button>
+          <button 
+            onClick={() => setSelectedNodes(new Set())} 
+            className="text-[11px] font-bold border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            ยกเลิกทั้งหมด
+          </button>
         </div>
       </div>
 
       <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full z-0">
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
         
-        {mockNodes.map((node) => {
+        {/* เปลี่ยนการ map ข้อมูลจาก mockNodes เป็น nodes */}
+        {nodes.map((node) => {
           const isSelected = selectedNodes.has(node.id);
           
           // สร้างไอคอนที่รวมทั้งรูปเสาและชื่อไว้ด้วยกัน
@@ -53,7 +53,7 @@ export default function Broadcast() {
             html: `
               <div style="display: flex; flex-direction: column; align-items: center; width: 100px;">
                 <img src="/pole.png" style="width: 40px; height: 80px; object-fit: contain;" />
-                <div class="${isSelected ? 'bg-blue-500' : 'bg-black'} text-white px-3 py-1 rounded-full font-bold shadow-lg text-xs mt-1 border-2 border-white">
+                <div class="${isSelected ? 'bg-blue-500' : 'bg-black'} text-white px-3 py-1 rounded-full font-bold shadow-lg text-xs mt-1 border-2 border-white transition-all text-center">
                   ${node.name}
                 </div>
               </div>

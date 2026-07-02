@@ -4,23 +4,19 @@ import L from 'leaflet';
 import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { renderToString } from 'react-dom/server';
-
-const cctvNodes = [
-  { id: 'node-1', name: 'Node 1', lat: 18.7951, lng: 98.9525, status: 'online' },
-  { id: 'node-2', name: 'Node 2', lat: 18.7958, lng: 98.9520, status: 'offline' },
-  { id: 'node-3', name: 'Node 3', lat: 18.7945, lng: 98.9515, status: 'online' },
-  { id: 'node-4', name: 'Node 4', lat: 18.7960, lng: 98.9510, status: 'online' },
-];
+import { useNodes } from '../context/NodeContext'; // นำเข้า Context
 
 export default function CCTVPage() {
   const navigate = useNavigate();
+  const { nodes } = useNodes(); // ดึงข้อมูลเสาทั้งหมดจาก Context ส่วนกลาง
 
   return (
     <main className="flex-1 h-screen relative bg-gray-100 font-sans">
       <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full z-0">
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
         
-        {cctvNodes.map((node) => {
+        {/* เปลี่ยนจาก cctvNodes เป็น nodes ที่ดึงมาจาก Context */}
+        {nodes.map((node) => {
           // สร้าง HTML: รูปเสาด้านบน + กล่อง Node โค้งมน
           const iconMarkup = renderToString(
             <div className="flex flex-col items-center">
