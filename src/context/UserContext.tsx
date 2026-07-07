@@ -1,5 +1,4 @@
-import { createContext, useContext, useState } from 'react';
-import type { ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 export interface UserItem {
   id: string;
@@ -10,49 +9,132 @@ export interface UserItem {
 
 interface UserContextType {
   users: UserItem[];
-  addUser: (user: UserItem) => void;
-  updateUser: (updatedUser: UserItem) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: UserItem) => Promise<void>;
+  updateUser: (updatedUser: UserItem) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
   currentUser: UserItem | null;
-  login: (username: string, pass: string) => boolean;
+  login: (username: string, pass: string) => Promise<boolean>;
   logout: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-  // ข้อมูลจำลองตั้งต้น
-  const [users, setUsers] = useState<UserItem[]>([
-    { id: 'u1', name: 'Admin', role: 'ADMIN', password: 'password123' },
-    { id: 'u2', name: 'นายบี', role: 'USER', password: '123456' },
-  ]);
+  const [users, setUsers] = useState<UserItem[]>([]);
+  
+  // โหลดสถานะล็อกอินจาก LocalStorage (ถ้าเคยล็อกอินไว้ จะได้ไม่หลุด)
+  const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
+    const saved = localStorage.getItem('currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
 
-  // สถานะล็อกอินตั้งต้นเป็น null (ยังไม่เข้าระบบ)
-  const [currentUser, setCurrentUser] = useState<UserItem | null>(null);
+  const API_URL = 'http://localhost/api';
 
-  // ฟังก์ชัน Login (เช็คแบบ Hardcode ตามที่คุณระบุมา)
-  const login = (username: string, pass: string) => {
-    if (username === 'Admin' && pass === '123456') {
-      setCurrentUser({ id: 'admin-hardcode', name: 'Admin', role: 'ADMIN', password: pass });
-      return true;
+  // ดึงข้อมูลรายชื่อผู้ใช้จาก Database ทันทีที่เปิดเว็บ
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${API_URL}/get_users.php`);
+      const data = await res.json();
+      
+      // แปลงข้อมูลให้ตรงกับที่ UI ต้องการ
+      const formattedUsers = data.map((u: any) => ({
+        id: u.id.toString(),
+        name: u.username || u.name || '',
+        role: u.role || 'USER',
+        password: u.password || ''
+      }));
+      setUsers(formattedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
-    if (username === 'User' && pass === '123456') {
-      setCurrentUser({ id: 'user-hardcode', name: 'User', role: 'USER', password: pass });
-      return true;
-    }
-    return false;
   };
 
-  // ฟังก์ชันออกจากระบบ
+  const login = async (username: string, pass: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('username', username);
+      formData.append('password', pass);
+
+      const res = await fetch(`${API_URL}/login.php`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+
+      // เช็คว่า API ตอบกลับมาว่าล็อกอินสำเร็จหรือไม่
+      if (data.status === 'success' || data.success) {
+        const loggedInUser: UserItem = {
+          id: data.user?.id?.toString() || '0',
+          name: data.user?.username || username,
+          role: data.user?.role || 'ADMIN', // ค่าเริ่มต้นถ้าไม่ได้ส่งกลับมา
+        };
+        setCurrentUser(loggedInUser);
+        localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login error (API may not be ready):', error);
+      // ระบบสำรอง (Fallback) เผื่อ API พัง ให้ล็อกอินเข้ามาระบบได้ก่อน
+      if (username === 'admin' && pass === '123456') {
+        const fallbackUser: UserItem = { id: 'admin-1', name: 'admin', role: 'ADMIN' };
+        setCurrentUser(fallbackUser);
+        localStorage.setItem('currentUser', JSON.stringify(fallbackUser));
+        return true;
+      }
+      return false;
+    }
+  };
+
   const logout = () => {
     setCurrentUser(null);
+    localStorage.removeItem('currentUser');
   };
 
-  const addUser = (user: UserItem) => setUsers([...users, user]);
-  const updateUser = (updatedUser: UserItem) => {
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+  const addUser = async (user: UserItem) => {
+    try {
+      const formData = new FormData();
+      formData.append('username', user.name);
+      formData.append('password', user.password || '');
+      formData.append('role', user.role);
+
+      await fetch(`${API_URL}/add_user.php`, { method: 'POST', body: formData });
+      await fetchUsers(); // โหลดข้อมูลใหม่หลังจากเพิ่มเสร็จ
+    } catch (error) {
+      console.error('Error adding user:', error);
+    }
   };
-  const deleteUser = (id: string) => setUsers(users.filter(u => u.id !== id));
+
+  const updateUser = async (updatedUser: UserItem) => {
+    try {
+      const formData = new FormData();
+      formData.append('id', updatedUser.id);
+      formData.append('username', updatedUser.name);
+      if (updatedUser.password) formData.append('password', updatedUser.password);
+      formData.append('role', updatedUser.role);
+
+      await fetch(`${API_URL}/edit_user.php`, { method: 'POST', body: formData });
+      await fetchUsers(); // โหลดข้อมูลใหม่หลังจากแก้เสร็จ
+    } catch (error) {
+      console.error('Error updating user:', error);
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('id', id);
+
+      await fetch(`${API_URL}/delete_user.php`, { method: 'POST', body: formData });
+      await fetchUsers(); // โหลดข้อมูลใหม่หลังจากลบเสร็จ
+    } catch (error) {
+      console.error('Error deleting user:', error);
+    }
+  };
 
   return (
     <UserContext.Provider value={{ users, addUser, updateUser, deleteUser, currentUser, login, logout }}>

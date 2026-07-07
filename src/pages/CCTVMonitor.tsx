@@ -1,34 +1,80 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
-  ArrowLeft, Trash2, Volume2, Pencil, Expand, 
-  ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square 
+  ArrowLeft, Volume2, Pencil, Expand, 
+  ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square,
+  ZoomIn, ZoomOut
 } from 'lucide-react';
+
+interface Camera {
+  id: number;
+  name: string;
+  ip: string;
+  ptz_ip: string;
+  ptz_port: number;
+  ptz_username: string;
+  ptz_password?: string;
+  location: string;
+}
 
 export default function CCTVMonitor() {
   const navigate = useNavigate();
-  const { nodeId } = useParams();
-  const [nodeName, setNodeName] = useState(nodeId || "Node 4");
-  
+  const { nodeId } = useParams(); // นี่คือ ID ของกล้อง
+  const [camera, setCamera] = useState<Camera | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [volume, setVolume] = useState(80);
   const [isVolumeOpen, setIsVolumeOpen] = useState(false);
 
-  const handleControl = (direction: string) => console.log(`Camera: ${direction}`);
-
-  // Keyboard Event Listener
+  // 1. ดึงข้อมูลกล้องตัวนี้
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const mapping: Record<string, string> = { ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' };
-      if (mapping[e.key]) handleControl(mapping[e.key]);
+    const fetchCamera = async () => {
+      try {
+        const res = await fetch('http://localhost/api/get_cameras.php');
+        const result = await res.json();
+        if (result.status === 'success') {
+          const found = result.data.find((c: Camera) => c.id.toString() === nodeId);
+          setCamera(found || null);
+        }
+      } catch (error) {
+        console.error("Error fetching camera:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    fetchCamera();
+  }, [nodeId]);
+
+  // 2. ฟังก์ชันควบคุม PTZ
+  const handlePTZ = async (command: string) => {
+    if (!camera || !camera.ptz_ip) return;
+    
+    try {
+      const payload = {
+        action: command === 'stop' ? 'stop' : 'move',
+        command: command,
+        ptz_ip: camera.ptz_ip,
+        ptz_port: camera.ptz_port,
+        ptz_username: camera.ptz_username,
+        ptz_password: camera.ptz_password || '',
+        speed: 0.5
+      };
+
+      await fetch('http://localhost/api/ptz_proxy.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      console.error("PTZ Control Error:", error);
+    }
+  };
+
+  if (isLoading) return <div className="flex-1 h-screen flex items-center justify-center font-bold text-gray-500 animate-pulse">กำลังโหลดข้อมูลกล้อง...</div>;
+  if (!camera) return <div className="flex-1 h-screen flex items-center justify-center font-bold text-red-500">ไม่พบข้อมูลกล้อง</div>;
 
   return (
     <main className="p-6 bg-gray-100 min-h-screen font-sans">
       <div className="max-w-5xl mx-auto">
-        {/* ปุ่มกลับ - นำทางกลับไปที่หน้า /cctv แน่นอน */}
         <button 
           onClick={() => navigate('/cctv')} 
           className="flex items-center gap-2 font-bold text-gray-600 mb-4 hover:text-black transition-colors"
@@ -36,10 +82,9 @@ export default function CCTVMonitor() {
           <ArrowLeft size={20} /> กลับ
         </button>
 
-        {/* Card หลัก */}
         <div className="bg-white rounded-[32px] shadow-xl overflow-hidden border border-gray-100">
           <div className="bg-[#48A0D8] p-5 flex justify-between items-center text-white">
-            <h2 className="text-xl font-bold">{nodeName}</h2>
+            <h2 className="text-xl font-bold">{camera.name}</h2>
             <button 
               onClick={() => navigate(`/cctv-playback/${nodeId}`)}
               className="bg-white/20 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-white/30 transition-all cursor-pointer"
@@ -48,15 +93,12 @@ export default function CCTVMonitor() {
             </button>
           </div>
 
-          {/* พื้นที่วิดีโอ */}
-          <div className="w-full h-[400px] bg-gray-200 relative flex items-center justify-center">
-            <span className="text-gray-400 font-bold">Video Feed</span>
+          <div className="w-full h-[400px] bg-black relative flex items-center justify-center">
+            {/* แสดง Video Feed (ถ้าเป็น IP กล้องปกติ) */}
+            <iframe src={camera.ip} className="w-full h-full border-0" allowFullScreen></iframe>
             
             {/* Toolbar ขวาล่าง */}
             <div className="absolute bottom-6 right-6 flex gap-3">
-              <button className="p-3 bg-white rounded-2xl shadow-lg hover:bg-gray-50 text-gray-700 transition-all"><Trash2 size={20} /></button>
-              
-              {/* ปุ่มเสียง + Volume Popup */}
               <div className="relative">
                 <button 
                   onClick={() => setIsVolumeOpen(!isVolumeOpen)} 
@@ -64,37 +106,40 @@ export default function CCTVMonitor() {
                 >
                   <Volume2 size={20} className={isVolumeOpen ? "text-[#48A0D8]" : "text-gray-700"} />
                 </button>
-
-                {/* Pop-up ปรับระดับเสียง */}
                 {isVolumeOpen && (
-                  <div className="absolute bottom-16 right-0 bg-white p-5 rounded-3xl shadow-2xl border border-gray-100 flex items-center gap-4 w-64 animate-in fade-in zoom-in duration-200 z-50">
+                  <div className="absolute bottom-16 right-0 bg-white p-5 rounded-3xl shadow-2xl border border-gray-100 flex items-center gap-4 w-64 z-50">
                     <Volume2 size={20} className="text-[#48A0D8]" />
-                    <input 
-                      type="range" min="0" max="100" value={volume} 
-                      onChange={(e) => setVolume(Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-                      style={{ background: `linear-gradient(to right, #48A0D8 ${volume}%, #E5E7EB ${volume}%)` }}
-                    />
+                    <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} className="w-full h-2 rounded-lg cursor-pointer" />
                     <span className="text-sm font-bold w-10 text-right">{volume}%</span>
                   </div>
                 )}
               </div>
-
-              <button onClick={() => { const name = prompt("Rename", nodeName); if(name) setNodeName(name); }} className="p-3 bg-white rounded-2xl shadow-lg hover:bg-gray-50 text-gray-700 transition-all"><Pencil size={20} /></button>
-              <button className="p-3 bg-white rounded-2xl shadow-lg hover:bg-gray-50 text-gray-700 transition-all"><Expand size={20} /></button>
             </div>
           </div>
         </div>
 
-        {/* ปุ่มควบคุม (D-Pad) */}
+        {/* ปุ่มควบคุม PTZ */}
         <div className="mt-10 flex flex-col items-center">
-          <button onClick={() => handleControl('Up')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowUp size={28} /></button>
-          <div className="flex gap-3 my-3">
-            <button onClick={() => handleControl('Left')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowLeftIcon size={28} /></button>
-            <button onClick={() => handleControl('Stop')} className="bg-red-600 p-5 rounded-2xl text-white hover:bg-red-700 shadow-lg transition-all"><Square size={28} /></button>
-            <button onClick={() => handleControl('Right')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowRight size={28} /></button>
-          </div>
-          <button onClick={() => handleControl('Down')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowDown size={28} /></button>
+           <h4 className="font-bold text-gray-700 mb-4">ควบคุมทิศทางกล้อง</h4>
+           
+           <div className="grid grid-cols-3 gap-3 mb-3">
+              <div></div>
+              <button onMouseDown={() => handlePTZ('up')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowUp size={28} /></button>
+              <div></div>
+              
+              <button onMouseDown={() => handlePTZ('left')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowLeftIcon size={28} /></button>
+              <button onClick={() => handlePTZ('stop')} className="bg-red-600 p-5 rounded-2xl text-white hover:bg-red-700 shadow-lg transition-all"><Square size={28} /></button>
+              <button onMouseDown={() => handlePTZ('right')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowRight size={28} /></button>
+              
+              <div></div>
+              <button onMouseDown={() => handlePTZ('down')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all"><ArrowDown size={28} /></button>
+              <div></div>
+           </div>
+
+           <div className="flex gap-4">
+              <button onMouseDown={() => handlePTZ('zoomin')} onMouseUp={() => handlePTZ('stop')} className="bg-gray-700 p-4 rounded-xl text-white hover:bg-gray-800 transition-all"><ZoomIn /></button>
+              <button onMouseDown={() => handlePTZ('zoomout')} onMouseUp={() => handlePTZ('stop')} className="bg-gray-700 p-4 rounded-xl text-white hover:bg-gray-800 transition-all"><ZoomOut /></button>
+           </div>
         </div>
       </div>
     </main>

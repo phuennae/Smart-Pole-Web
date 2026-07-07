@@ -11,11 +11,11 @@ export default function Login() {
   const { login } = useUsers();
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => { // เติม async
     e.preventDefault();
-    const success = login(username, password);
+    const success = await login(username, password); // เติม await
     if (success) {
-      navigate('/'); // ล็อกอินสำเร็จไปหน้า Home
+      navigate('/');
     } else {
       setError('Username หรือ Password ไม่ถูกต้อง');
     }
