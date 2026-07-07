@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import type { ReactNode } from 'react'; // เพิ่ม import นี้เพื่อแก้ Error
+import type { ReactNode } from 'react';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import AudioControl from './pages/AudioControl';
@@ -13,27 +13,23 @@ import Login from './pages/Login';
 import { NodeProvider } from './context/NodeContext';
 import { UserProvider, useUsers } from './context/UserContext';
 
-// เปลี่ยนจาก JSX.Element เป็น ReactNode
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { currentUser } = useUsers();
   return currentUser ? children : <Navigate to="/login" />;
 }
 
-// โครงสร้างหลัก
 function AppContent() {
   const { currentUser } = useUsers();
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* ซ่อน Sidebar ถ้ายังไม่ได้ล็อกอิน */}
+    // md:flex-row แปลว่าถ้าจอใหญ่กว่า 768px (PC/Notebook) ให้เรียงซ้ายขวา แต่ถ้าจอเล็ก (มือถือ) ให้เรียงบนลงล่าง flex-col
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-gray-100">
       {currentUser && <Sidebar />}
       
-      <div className="flex-1 overflow-y-auto bg-gray-100">
+      {/* ส่วนเนื้อหาหลักจะยืดเต็มพื้นที่ที่เหลือ */}
+      <div className="flex-grow h-full overflow-y-auto relative w-full">
         <Routes>
-          {/* หน้า Login (ถ้าล็อกอินแล้ว ให้เด้งกลับไปหน้า Home อัตโนมัติ) */}
           <Route path="/login" element={!currentUser ? <Login /> : <Navigate to="/" />} />
-          
-          {/* หน้าอื่นๆ ทั้งหมดถูกหุ้มด้วย PrivateRoute เพื่อบังคับล็อกอินก่อน */}
           <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
           <Route path="/audio" element={<PrivateRoute><AudioControl /></PrivateRoute>} />
           <Route path="/broadcast" element={<PrivateRoute><Broadcast /></PrivateRoute>} />
