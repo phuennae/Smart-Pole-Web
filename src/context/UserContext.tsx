@@ -65,13 +65,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       });
       const data = await res.json();
 
-      // เช็คว่า API ตอบกลับมาว่าล็อกอินสำเร็จหรือไม่
+      // ในไฟล์ src/context/UserContext.tsx -> ภายในฟังก์ชัน login
       if (data.status === 'success' || data.success) {
+      // --- จุดที่แก้ไขอยู่ตรงนี้ครับ ---
+        const rawRole = data.user?.role || 'USER'; // ดึงค่าจาก DB
+        const normalizedRole = rawRole.toUpperCase(); // แปลงเป็นตัวพิมพ์ใหญ่เสมอ
+
         const loggedInUser: UserItem = {
           id: data.user?.id?.toString() || '0',
           name: data.user?.username || username,
-          role: data.user?.role || 'ADMIN', // ค่าเริ่มต้นถ้าไม่ได้ส่งกลับมา
+          role: (normalizedRole === 'ADMIN' ? 'ADMIN' : 'USER') as 'ADMIN' | 'USER', 
         };
+        // --------------------------------
+
         setCurrentUser(loggedInUser);
         localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
         return true;
