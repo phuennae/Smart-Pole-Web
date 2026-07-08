@@ -47,7 +47,7 @@ fetch('http://localhost/api/get_cameras.php')
 npm run dev
 ```
 
-## Project Structure (โครงสร้างโปรเจกต์)
+## 📂 Project Structure (โครงสร้างโปรเจกต์)
 *C:\Users...\Smart Pole Web* : เก็บโค้ดส่วน Frontend (React/Vite)
 
 *C:\xampp\htdocs\api* : เก็บโค้ดส่วน Backend (PHP/API)
