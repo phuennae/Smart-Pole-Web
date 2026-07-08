@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Calendar, Play, Square, Clock, Video } from 'lucide-react';
+import { ArrowLeft, Search, Play, Square, Clock, Pause, Settings2 } from 'lucide-react';
 
 interface Recording {
   id: string;
@@ -16,22 +16,119 @@ export default function CCTVPlayback() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<Recording | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1.0); // ✅ นำ speed กลับมาใช้
+  
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const playerRef = useRef<any>(null);
 
-  // จำลองการค้นหาไฟล์ย้อนหลัง (เชื่อมกับ playback_proxy.php ในอนาคต)
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "https://cdn.jsdelivr.net/npm/jsmpeg@1.0.0/dist/jsmpeg.min.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+      if (playerRef.current) playerRef.current.destroy();
+    };
+  }, []);
+
   const handleSearch = async () => {
     setIsLoading(true);
-    // ในอนาคตเปลี่ยนเป็น fetch ไปที่ playback_proxy.php
-    setTimeout(() => {
-      // จำลองข้อมูลที่ได้จาก DB
-      setRecordings([
-        { id: '1', start: '2026-06-25T08:00:00', end: '2026-06-25T08:30:00' },
-        { id: '2', start: '2026-06-25T14:00:00', end: '2026-06-25T15:00:00' }
-      ]);
+    try {
+      const formData = new FormData();
+      formData.append('action', 'search');
+      formData.append('camera_id', nodeId || '');
+      formData.append('date', date);
+
+      const res = await fetch('http://localhost/api/playback_proxy.php', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await res.json();
+      
+      if (result.success) {
+        setRecordings(result.recordings);
+        setSelectedSegment(null);
+        stopPlayback();
+      } else {
+        alert('ไม่พบข้อมูลบันทึกในวันที่เลือก');
+      }
+    } catch (error) {
+      console.error("Search Error:", error);
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
-  // ฟังก์ชันคำนวณตำแหน่ง Timeline (เหมือน logic ใน PHP เดิม)
+  const playPlayback = () => {
+    if (!selectedSegment || !canvasRef.current) return;
+    
+    if (playerRef.current) {
+      playerRef.current.destroy();
+    }
+
+    const wsUrl = `ws://localhost:8080/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
+    
+    playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
+      canvas: canvasRef.current,
+      autoplay: true,
+      audio: true
+    });
+    
+    setIsPlaying(true);
+  };
+
+  const stopPlayback = () => {
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
+    setIsPlaying(false);
+  };
+
+  const togglePause = () => {
+    if (!playerRef.current) return;
+    if (isPlaying) {
+      playerRef.current.pause();
+    } else {
+      playerRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  // ✅ ฟังก์ชันปรับความเร็ว (อิงตาม logic ต้นฉบับ)
+  const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSpeed = Number(e.target.value);
+    setSpeed(newSpeed);
+
+    // JSMpeg ไม่มีเมธอดเปลี่ยนความเร็ว ต้องทำลายทิ้งแล้วสร้างใหม่
+    if (playerRef.current && selectedSegment && canvasRef.current) {
+      const wasPlaying = isPlaying;
+      playerRef.current.destroy();
+
+      const wsUrl = `ws://localhost:8080/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
+      
+      playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
+        canvas: canvasRef.current,
+        autoplay: true,
+        audio: true
+      });
+
+      // ถ้าเดิมทีวิดีโอหยุดอยู่ ให้รอเชื่อมต่อเสร็จแล้วหยุดภาพไว้
+      if (!wasPlaying) {
+        setTimeout(() => {
+          if (playerRef.current) playerRef.current.pause();
+          setIsPlaying(false);
+        }, 1000);
+      } else {
+        setIsPlaying(true);
+      }
+    }
+  };
+
   const getTimelineStyle = (startStr: string, endStr: string) => {
     const start = new Date(startStr);
     const end = new Date(endStr);
@@ -41,7 +138,7 @@ export default function CCTVPlayback() {
     const leftPercent = (startMin / (24 * 60)) * 100;
     const widthPercent = ((endMin - startMin) / (24 * 60)) * 100;
     
-    return { left: `${leftPercent}%`, width: `${Math.max(widthPercent, 1)}%` };
+    return { left: `${leftPercent}%`, width: `${Math.max(widthPercent, 0.5)}%` };
   };
 
   return (
@@ -55,7 +152,6 @@ export default function CCTVPlayback() {
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sidebar: ค้นหา */}
           <div className="lg:col-span-1">
             <div className="bg-white p-6 rounded-[32px] shadow-lg border border-gray-100">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Search size={20} /> ค้นหาไฟล์</h3>
@@ -65,34 +161,39 @@ export default function CCTVPlayback() {
                   type="date" 
                   value={date} 
                   onChange={(e) => setDate(e.target.value)} 
-                  className="w-full p-3 bg-gray-50 rounded-xl border-0" 
+                  className="w-full p-3 bg-gray-50 rounded-xl border-0 outline-none focus:ring-2 focus:ring-[#48A0D8]" 
                 />
               </div>
-              <button onClick={handleSearch} className="w-full bg-[#48A0D8] text-white p-3 rounded-xl font-bold hover:bg-blue-600 transition-all">
+              <button onClick={handleSearch} disabled={isLoading} className="w-full bg-[#48A0D8] text-white p-3 rounded-xl font-bold hover:bg-blue-600 transition-all disabled:opacity-50">
                 {isLoading ? 'กำลังค้นหา...' : 'ค้นหาบันทึก'}
               </button>
             </div>
           </div>
 
-          {/* Main: Video Player & Timeline */}
           <div className="lg:col-span-2">
             <div className="bg-white p-6 rounded-[32px] shadow-lg border border-gray-100">
-              <h3 className="text-lg font-bold mb-4">Playback Viewer</h3>
+              <h3 className="text-lg font-bold mb-4 text-gray-800">Playback Viewer</h3>
               
-              <div className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white/20 mb-6">
-                {selectedSegment ? `เล่นไฟล์: ${selectedSegment.start}` : 'เลือกช่วงเวลาที่ Timeline ด้านล่างเพื่อเล่น'}
+              <div className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white mb-6 overflow-hidden relative">
+                <canvas ref={canvasRef} className="w-full h-full block"></canvas>
+                
+                {!isPlaying && !playerRef.current && (
+                   <div className="absolute inset-0 flex items-center justify-center text-white/50 font-bold">
+                     {selectedSegment ? 'กดปุ่ม Play เพื่อเริ่มเล่น' : 'กรุณาค้นหาและเลือกช่วงเวลา'}
+                   </div>
+                )}
               </div>
 
-              {/* Timeline */}
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <div className="text-xs font-bold text-gray-400 mb-2">Timeline (24 ชั่วโมง)</div>
-                <div className="h-16 bg-gray-200 rounded-lg relative overflow-hidden cursor-pointer">
+                <div className="h-16 bg-gray-200 rounded-lg relative overflow-hidden cursor-pointer shadow-inner">
                   {recordings.map((rec) => (
                     <div 
                       key={rec.id}
-                      className={`absolute h-full bg-blue-500/50 border-r border-white/50 transition-all ${selectedSegment?.id === rec.id ? 'bg-blue-600' : ''}`}
+                      className={`absolute h-full bg-blue-500/60 border-r border-white/50 transition-all hover:opacity-100 ${selectedSegment?.id === rec.id ? 'bg-blue-600 shadow-[0_0_0_2px_white_inset]' : ''}`}
                       style={getTimelineStyle(rec.start, rec.end)}
                       onClick={() => setSelectedSegment(rec)}
+                      title={`${rec.start} - ${rec.end}`}
                     />
                   ))}
                 </div>
@@ -101,22 +202,39 @@ export default function CCTVPlayback() {
                 </div>
               </div>
 
-              {/* Controls */}
-              <div className="flex items-center gap-4 mt-6">
-                <button 
-                  disabled={!selectedSegment}
-                  className="bg-green-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all"
-                >
-                  <Play size={24} />
+              <div className="flex items-center gap-4 mt-6 flex-wrap">
+                {!isPlaying ? (
+                  <button onClick={playPlayback} disabled={!selectedSegment} className="bg-green-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all shadow-md active:scale-95">
+                    <Play size={24} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button onClick={togglePause} className="bg-orange-500 text-white p-3 rounded-xl transition-all shadow-md active:scale-95">
+                    <Pause size={24} fill="currentColor" />
+                  </button>
+                )}
+                
+                <button onClick={stopPlayback} disabled={!playerRef.current} className="bg-red-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all shadow-md active:scale-95">
+                  <Square size={24} fill="currentColor" />
                 </button>
-                <button 
-                  disabled={!selectedSegment}
-                  className="bg-red-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all"
-                >
-                  <Square size={24} />
-                </button>
-                <div className="ml-auto font-mono font-bold text-gray-700 flex items-center gap-2">
-                  <Clock size={18} /> {selectedSegment ? selectedSegment.start.split('T')[1] : '--:--'}
+
+                {/* ✅ ตัวเลือกความเร็ว นำกลับมาใส่ตรงนี้ */}
+                <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-xl border border-gray-200">
+                  <Settings2 size={18} className="text-gray-500" />
+                  <select 
+                    value={speed}
+                    onChange={handleSpeedChange}
+                    className="bg-transparent text-gray-700 font-bold border-0 outline-none cursor-pointer"
+                  >
+                    <option value="0.5">0.5x</option>
+                    <option value="1">1.0x (Normal)</option>
+                    <option value="2">2.0x</option>
+                    <option value="4">4.0x</option>
+                  </select>
+                </div>
+
+                <div className="ml-auto font-mono font-bold text-gray-700 flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-xl">
+                  <Clock size={18} className="text-[#48A0D8]" /> 
+                  {selectedSegment ? selectedSegment.start.split('T')[1].substring(0, 5) + ' - ' + selectedSegment.end.split('T')[1].substring(0, 5) : '--:--'}
                 </div>
               </div>
             </div>
