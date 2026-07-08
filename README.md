@@ -1,35 +1,40 @@
-# React + TypeScript + Vite
+Smart Pole Web System
+ระบบควบคุมเสาไฟอัจฉริยะ (Smart Pole) โดยแยกส่วนการทำงานระหว่าง Frontend และ Backend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+🛠 Prerequisites (สิ่งที่ต้องมี)
+Node.js (LTS version): สำหรับรันตัว Frontend (React)
 
-Currently, two official plugins are available:
+XAMPP: สำหรับรันตัว Backend (PHP & MySQL)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+🚀 Setup Instructions (ขั้นตอนการติดตั้ง)
+1. ส่วน Backend (PHP & Database)
+นำโฟลเดอร์ api (ที่มีไฟล์ PHP ทั้งหมด) ไปวางไว้ที่: C:\xampp\htdocs\api\
 
-## React Compiler
+เปิด XAMPP Control Panel แล้วกด Start Apache และ MySQL
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+เข้าไปที่ http://localhost/phpmyadmin/ เพื่อสร้างฐานข้อมูล (Database) ตามชื่อที่คุณใช้ในโปรเจกต์
 
-## Expanding the Oxlint configuration
+ตั้งค่าไฟล์ C:\xampp\htdocs\api\config.php:
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+ตรวจสอบ host, user, password และ dbname ให้ตรงกับฐานข้อมูลในเครื่องของคุณ
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+2. ส่วน Frontend (React)
+เปิด Terminal ในโฟลเดอร์โปรเจกต์ React ของคุณ
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+ติดตั้ง Library ที่จำเป็น:
 
+Bash
+npm install
+(สำคัญ) ตรวจสอบให้แน่ใจว่าในโค้ด React ทุกจุดที่มีการเรียก API (เช่น fetch) คุณได้ระบุ URL ให้ถูกต้อง เช่น:
 
-Access DB : http://localhost/phpmyadmin/
+JavaScript
+// ตัวอย่างการเรียก API
+fetch('http://localhost/api/get_cameras.php')
+🏃‍♂️ How to Run (วิธีเริ่มรันระบบ)
+เปิด Backend: เปิด XAMPP ให้ Apache และ MySQL ขึ้นสถานะ Running
+
+เปิด Frontend: เปิด Terminal ในโฟลเดอร์ React แล้วพิมพ์:
+
+Bash
+npm run dev
+ใช้งาน: คลิกที่ลิงก์ที่แสดงใน Terminal (เช่น http://localhost:5173) เพื่อเข้าใช้งานระบบ
