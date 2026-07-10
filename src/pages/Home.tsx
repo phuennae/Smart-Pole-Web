@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from 'leaflet';
 import { Share } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
+import { useNavigate } from 'react-router-dom';
 
 // --- AutoFit Component (จัดกล้องให้เห็นหมุดทั้งหมด) ---
 function AutoFit() {
@@ -29,9 +30,11 @@ const smartPoleIcon = new Icon({
 
 // --- PoleMarker Component (รับหน้าที่เช็คสถานะ Real-time) ---
 function PoleMarker({ node }: { node: NodeItem }) {
-  const [statusData, setStatusData] = useState({
+  const navigate = useNavigate(); // นำคำสั่ง navigate มาเตรียมไว้ใช้ย้ายหน้า
+  
+  const [statusData, setStatusData] = useState<any>({
     online: false,
-    data: { voltage: '-', current: '-', power: '-', energy: '-' }
+    data: { voltage: '-', current: '-', power: '-', energy: '-', battery_pct: null }
   });
 
   useEffect(() => {
@@ -45,11 +48,11 @@ function PoleMarker({ node }: { node: NodeItem }) {
         if (isMounted && result.status === 'success') {
           setStatusData({
             online: result.online,
-            data: result.data || { voltage: '-', current: '-', power: '-', energy: '-' }
+            data: result.data || { voltage: '-', current: '-', power: '-', energy: '-', battery_pct: null }
           });
         }
       } catch (err) {
-        if (isMounted) setStatusData(prev => ({ ...prev, online: false }));
+        if (isMounted) setStatusData((prev: any) => ({ ...prev, online: false }));
       }
     };
 
@@ -69,20 +72,36 @@ function PoleMarker({ node }: { node: NodeItem }) {
       <Popup closeButton={false} className="custom-popup" minWidth={280} maxWidth={280}>
         <div className="w-[280px] flex flex-col font-sans shadow-2xl rounded-[20px] overflow-hidden border-0">
           
-          {/* Header สีฟ้า (ดีไซน์เดิม) */}
-          <div className="bg-[#48A0D8] px-4 py-3 flex justify-between items-center text-white">
-            <div className="flex items-center gap-2.5">
-              {/* สลับสีจุดหน้าชื่อ ตามสถานะ */}
-              <div className={`w-3.5 h-3.5 rounded-full ${online ? 'bg-[#76E136] animate-pulse shadow-[0_0_8px_rgba(118,225,54,0.8)]' : 'bg-red-500'}`} />
-              <span className="font-bold text-2xl tracking-wide">{node.name}</span>
+          {/* --- Header สีฟ้า ปรับ Layout ใหม่ --- */}
+          <div className="bg-[#48A0D8] px-4 py-3 flex justify-between items-start text-white">
+            
+            {/* ฝั่งซ้าย: สถานะ และ ชื่อ (ให้มีพื้นที่ขยายตัวได้) */}
+            <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+              <div className={`w-3.5 h-3.5 shrink-0 rounded-full mt-0.5 ${online ? 'bg-[#76E136] animate-pulse shadow-[0_0_8px_rgba(118,225,54,0.8)]' : 'bg-red-500'}`} />
+              {/* ลดขนาด font ลงนิดนึง และเพิ่ม whitespace-normal ให้มันขึ้นบรรทัดใหม่ได้ถ้าชื่อยาวมาก */}
+              <span className="font-bold text-[20px] leading-tight tracking-wide whitespace-normal break-words" title={node.name}>
+                {node.name}
+              </span>
             </div>
             
-            {/* ซ่อน/แสดง ปุ่มดูกราฟ ตามสถานะ */}
+            {/* ฝั่งขวา: กราฟ และ แบตเตอรี่ (จัดกลุ่มเรียงลงมา) */}
             {online && (
-              <button className="bg-white text-black text-[12px] px-3 py-1.5 rounded-full flex items-center gap-1.5 font-bold shadow-md hover:bg-gray-100 transition-colors">
-                กราฟ <Share size={14} strokeWidth={2.5} />
-              </button>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <button 
+                  onClick={() => navigate(`/energy-monitor/${node.id}`)} 
+                  className="bg-white text-black text-[12px] px-3 py-1 rounded-full flex items-center gap-1.5 font-bold shadow-sm hover:bg-gray-100 transition-colors"
+                >
+                  กราฟ <Share size={14} strokeWidth={2.5} />
+                </button>
+                
+                {data?.battery_pct !== undefined && data.battery_pct !== null && (
+                  <div className="text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 bg-white text-[#48A0D8]">
+                    ⚡ {data.battery_pct}%
+                  </div>
+                )}
+              </div>
             )}
+            
           </div>
 
           {/* Body พื้นหลัง Gradient (ดีไซน์เดิมเป๊ะๆ) */}

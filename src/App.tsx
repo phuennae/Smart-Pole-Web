@@ -10,6 +10,7 @@ import CCTVPlayback from './pages/CCTVPlayback';
 import AddNode from './pages/AddNode';
 import AddUser from './pages/AddUser';
 import Login from './pages/Login';
+import EnergyMonitor from './pages/EnergyMonitor';
 import { NodeProvider } from './context/NodeContext';
 import { UserProvider, useUsers } from './context/UserContext';
 
@@ -38,6 +39,7 @@ function AppContent() {
           <Route path="/cctv-playback/:nodeId" element={<PrivateRoute><CCTVPlayback /></PrivateRoute>} />
           <Route path="/add-node" element={<PrivateRoute><AddNode /></PrivateRoute>} />
           <Route path="/add-user" element={<PrivateRoute><AddUser /></PrivateRoute>} />
+          <Route path="/energy-monitor/:nodeId" element={<EnergyMonitor />} />
         </Routes>
       </div>
     </div>

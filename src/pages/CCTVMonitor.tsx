@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
-  ArrowLeft, Volume2, Expand, 
-  ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square,
+  ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square,
   ZoomIn, ZoomOut, VideoOff, Video
 } from 'lucide-react';
 
@@ -22,11 +21,8 @@ export default function CCTVMonitor() {
   const { nodeId } = useParams(); 
   
   const [camera, setCamera] = useState<Camera | null>(null);
-  const [isNodeOnline, setIsNodeOnline] = useState(true); // เพิ่ม State เก็บสถานะว่าเครื่องออฟไลน์หรือไม่
+  const [isNodeOnline, setIsNodeOnline] = useState(true); 
   const [isLoading, setIsLoading] = useState(true);
-  
-  const [volume, setVolume] = useState(80);
-  const [isVolumeOpen, setIsVolumeOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,7 +39,7 @@ export default function CCTVMonitor() {
         const statusRes = await fetch(`http://localhost/api/get_node_status.php?id=${nodeId}`);
         const statusData = await statusRes.json();
         if (statusData.status === 'success') {
-          setIsNodeOnline(statusData.online); // ถ้า online: true คือเสียบปลั๊กอยู่ (ภาพจะขึ้นแม้ไม่มี SD Card)
+          setIsNodeOnline(statusData.online); 
         } else {
           setIsNodeOnline(false);
         }
@@ -56,7 +52,6 @@ export default function CCTVMonitor() {
     };
     
     fetchData();
-    // สั่งเช็คสถานะอัปเดตทุก 10 วินาที
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, [nodeId]);
@@ -69,17 +64,23 @@ export default function CCTVMonitor() {
         action: command === 'stop' ? 'stop' : 'move',
         command: command,
         ptz_ip: camera.ptz_ip,
-        ptz_port: camera.ptz_port,
-        ptz_username: camera.ptz_username,
+        ptz_port: camera.ptz_port || 80,
+        ptz_username: camera.ptz_username || 'admin',
         ptz_password: camera.ptz_password || '',
         speed: 0.5
       };
 
-      await fetch('http://localhost/api/ptz_proxy.php', {
+      const response = await fetch('http://localhost/api/ptz_proxy.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.error("PTZ Command Failed:", result.error);
+      }
     } catch (error) {
       console.error("PTZ Control Error:", error);
     }
@@ -116,48 +117,21 @@ export default function CCTVMonitor() {
             
             {/* เช็คเงื่อนไขโชว์ภาพวิดีโอ */}
             {!isNodeOnline ? (
-              // กรณี 1: เสาไม่ได้เสียบปลั๊ก/ออฟไลน์ -> โชว์ ไม่พบภาพ ทันที
               <div className="text-center text-white flex flex-col items-center">
                 <VideoOff size={48} className="text-red-500 mb-3" />
                 <p className="font-bold text-xl">ไม่พบภาพ</p>
                 <p className="text-gray-400 text-sm mt-1">สถานีนี้กำลังขาดการติดต่อ (Offline)</p>
               </div>
             ) : camera.ip.includes('rtsp://') ? (
-              // กรณี 2: เสาออนไลน์ แต่ใช้ RTSP (ต้องผ่าน Server)
               <div className="text-center text-white">
                 <Video size={48} className="mx-auto mb-3 text-gray-600" />
                 <p className="font-bold">ระบบ RTSP</p>
                 <p className="text-sm text-gray-400">กำลังรอการเชื่อมต่อ Streaming Server</p>
               </div>
             ) : (
-              // กรณี 3: เสาออนไลน์ เป็น HTTP/IP ปกติ -> โชว์ iframe 
-              // (ไม่สนใจว่ามี SD card หรือไม่ ภาพก็จะโชว์)
               <iframe src={camera.ip} className="w-full h-full border-0" allowFullScreen></iframe>
             )}
 
-            {/* Toolbar ขวาล่าง (โชว์เฉพาะตอนที่เครื่องออนไลน์) */}
-            {isNodeOnline && (
-              <div className="absolute bottom-6 right-6 flex gap-3">
-                <div className="relative">
-                  <button 
-                    onClick={() => setIsVolumeOpen(!isVolumeOpen)} 
-                    className={`p-3 rounded-2xl shadow-lg transition-all ${isVolumeOpen ? 'bg-gray-200' : 'bg-white hover:bg-gray-50'}`}
-                  >
-                    <Volume2 size={20} className={isVolumeOpen ? "text-[#48A0D8]" : "text-gray-700"} />
-                  </button>
-                  {isVolumeOpen && (
-                    <div className="absolute bottom-16 right-0 bg-white p-5 rounded-3xl shadow-2xl border border-gray-100 flex items-center gap-4 w-64 z-50">
-                      <Volume2 size={20} className="text-[#48A0D8]" />
-                      <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} className="w-full h-2 rounded-lg cursor-pointer" />
-                      <span className="text-sm font-bold w-10 text-right">{volume}%</span>
-                    </div>
-                  )}
-                </div>
-                <button className="p-3 bg-white rounded-2xl shadow-lg hover:bg-gray-50 text-gray-700 transition-all">
-                  <Expand size={20} />
-                </button>
-              </div>
-            )}
           </div>
         </div>
 

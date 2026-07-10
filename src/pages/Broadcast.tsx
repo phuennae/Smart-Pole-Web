@@ -24,16 +24,85 @@ export default function Broadcast() {
   const { nodes } = useNodes();
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   
-  // States สำหรับเช็คว่ากำลังทำงานอะไรอยู่
+  // States สำหรับเก็บสถานะ Online/Offline ของแต่ละเสา (id -> boolean)
+  const [onlineStatuses, setOnlineStatuses] = useState<Record<string, boolean>>({});
+  
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false); 
   const [isLoading, setIsLoading] = useState(false);
 
+  // --- ดึงสถานะ Real-time ของทุกเสา ---
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchAllStatuses = async () => {
+      if (nodes.length === 0) return;
+      
+      const newStatuses: Record<string, boolean> = {};
+      
+      // วนลูปเช็คสถานะทุกเสา
+      for (const node of nodes) {
+        try {
+          const res = await fetch(`http://localhost/api/get_node_status.php?id=${node.id}`);
+          const data = await res.json();
+          newStatuses[node.id] = data.status === 'success' ? data.online : false;
+        } catch {
+          newStatuses[node.id] = false;
+        }
+      }
+
+      if (isMounted) {
+        setOnlineStatuses(newStatuses);
+      }
+    };
+
+    fetchAllStatuses();
+    const intervalId = setInterval(fetchAllStatuses, 10000); // อัปเดตทุก 10 วินาที
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [nodes]);
+
+  // --- ถอดเสาที่ Offline ออกจากรายการที่เลือก (ออโต้) ---
+  useEffect(() => {
+    setSelectedNodes(prev => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of next) {
+        // ถ้าสถานะมันอัปเดตเป็น Offline ให้เอาออกจากการเลือก
+        if (onlineStatuses[id] === false) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [onlineStatuses]);
+
+  // --- ฟังก์ชันเลือกเสาทีละต้น ---
   const toggleNode = (id: string) => {
+    // ล็อกไม่ให้เลือกเสา Offline
+    if (onlineStatuses[id] !== true) {
+      alert("⚠️ เสานี้ Offline อยู่ ไม่สามารถเลือกได้ครับ");
+      return;
+    }
+
     const newSelected = new Set(selectedNodes);
     if (newSelected.has(id)) newSelected.delete(id);
     else newSelected.add(id);
     setSelectedNodes(newSelected);
+  };
+
+  // --- ฟังก์ชันเลือกทั้งหมด (เฉพาะที่ Online) ---
+  const handleSelectAll = () => {
+    const onlineNodeIds = nodes.filter(n => onlineStatuses[n.id] === true).map(n => n.id);
+    if (onlineNodeIds.length === 0) {
+      alert("⚠️ ไม่มีเสาไฟที่ Online อยู่ในขณะนี้ครับ");
+      return;
+    }
+    setSelectedNodes(new Set(onlineNodeIds));
   };
 
   // --- ฟังก์ชันประกาศเสียงสด ---
@@ -96,7 +165,7 @@ export default function Broadcast() {
           });
         }
       }
-      setIsAlarmPlaying(true); // เปลี่ยนสถานะเป็นกำลังเล่น
+      setIsAlarmPlaying(true); 
     } catch (error) {
       console.error("Error playing alarm:", error);
       alert("เกิดข้อผิดพลาดในการส่งคำสั่ง Alarm");
@@ -116,7 +185,6 @@ export default function Broadcast() {
           formData.append('node_id', targetNode.id);
           formData.append('ip', (targetNode as any).ip_address); 
 
-          // ยิงไปที่ไฟล์หยุดเล่นเสียง
           await fetch('http://localhost/api/stop_audio.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -124,7 +192,7 @@ export default function Broadcast() {
           });
         }
       }
-      setIsAlarmPlaying(false); // คืนสถานะกลับมาเป็นปกติ
+      setIsAlarmPlaying(false); 
     } catch (error) {
       console.error("Error stopping alarm:", error);
       alert("เกิดข้อผิดพลาดในการหยุดเสียง Alarm");
@@ -136,12 +204,11 @@ export default function Broadcast() {
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-gray-100 font-sans w-full">
       
-      {/* แผงควบคุมด้านขวา (รวมอยู่ในกล่องเดียว จัดปุ่ม Action ไว้ด้วยกัน) */}
+      {/* แผงควบคุมด้านขวา */}
       <div className="absolute top-4 right-4 md:top-6 md:right-6 z-[1000] w-[calc(100%-32px)] sm:w-64">
         
         <div className="bg-white p-3 md:p-4 rounded-2xl shadow-xl flex flex-col gap-4 border border-gray-100">
           
-          {/* --- โซนที่ 1: สั่งการ (Actions) --- */}
           <div className="flex flex-col gap-3">
             
             {/* 1.1 ปุ่มประกาศเสียงสด */}
@@ -163,7 +230,7 @@ export default function Broadcast() {
               </button>
             )}
 
-            {/* 1.2 ปุ่ม Alarm (ย้ายมาต่อกัน) */}
+            {/* 1.2 ปุ่ม Alarm */}
             {!isAlarmPlaying ? (
               <button 
                 onClick={handlePlayAlarm}
@@ -184,14 +251,13 @@ export default function Broadcast() {
             
           </div>
 
-          {/* เส้นคั่นบางๆ */}
           <div className="h-px bg-gray-200 w-full my-0.5"></div>
 
-          {/* --- โซนที่ 2: เลือกพื้นที่เป้าหมาย (Selection) --- */}
+          {/* โซนเลือกพื้นที่ */}
           <div className="flex flex-col gap-2">
             <p className="text-[10px] font-bold text-gray-400 text-center tracking-wide">จัดการพื้นที่เป้าหมาย</p>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setSelectedNodes(new Set(nodes.map(n => n.id)))} className="text-[11px] font-bold border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition-colors">เลือกทั้งหมด</button>
+              <button onClick={handleSelectAll} className="text-[11px] font-bold border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition-colors">เลือกทั้งหมด</button>
               <button onClick={() => setSelectedNodes(new Set())} className="text-[11px] font-bold border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition-colors">ยกเลิกทั้งหมด</button>
             </div>
           </div>
@@ -204,12 +270,22 @@ export default function Broadcast() {
         <AutoFit />
         {nodes.map((node) => {
           const isSelected = selectedNodes.has(node.id);
+          const isOnline = onlineStatuses[node.id] === true;
+          
+          // เปลี่ยนสีจุดสถานะ
+          const statusDot = isOnline ? 'bg-[#76E136]' : 'bg-red-500';
+          // ทำให้ภาพเสาไฟเทาลงถ้าออฟไลน์
+          const filterStyle = isOnline 
+            ? (isSelected ? 'drop-shadow(0 0 8px rgba(72,160,216,0.8))' : 'none') 
+            : 'grayscale(100%) opacity(70%)';
+
           const icon = L.divIcon({
             className: 'custom-pole-icon',
             html: `
-              <div style="display: flex; flex-direction: column; align-items: center; width: 80px; transition: all 0.3s;">
-                <img src="/pole.png" style="width: 30px; height: 60px; object-fit: contain; filter: ${isSelected ? 'drop-shadow(0 0 8px rgba(72,160,216,0.8))' : 'none'};" />
-                <div class="${isSelected ? 'bg-[#48A0D8]' : 'bg-black'} text-white px-2 py-0.5 rounded-full font-bold shadow-lg text-[10px] mt-1 border border-white text-center whitespace-nowrap">
+              <div style="display: flex; flex-direction: column; align-items: center; width: 80px; transition: all 0.3s; cursor: ${isOnline ? 'pointer' : 'not-allowed'};">
+                <img src="/pole.png" style="width: 30px; height: 60px; object-fit: contain; filter: ${filterStyle};" />
+                <div class="${isSelected ? 'bg-[#48A0D8]' : 'bg-black'} text-white px-2 py-0.5 rounded-full font-bold shadow-lg text-[10px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5">
+                  <div class="w-1.5 h-1.5 rounded-full ${statusDot}"></div>
                   ${node.name}
                 </div>
               </div>

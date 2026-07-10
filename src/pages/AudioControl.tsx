@@ -25,7 +25,7 @@ interface Schedule { id: number; days: string; time: string; file: string; volum
 
 const smartPoleIcon = new Icon({ iconUrl: '/pole.png', iconSize: [40, 80], iconAnchor: [20, 80], popupAnchor: [0, -80] });
 
-// --- AudioPoleMarker Component (จัดการ Real-time เช็คสถานะ, ไฟล์เพลง, และควบคุมเสียง) ---
+// --- AudioPoleMarker Component ---
 function AudioPoleMarker({ node }: { node: NodeItem }) {
   const [online, setOnline] = useState(false);
   const [files, setFiles] = useState<string[]>([]);
@@ -33,7 +33,7 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedFile, setSelectedFile] = useState('');
   const [showSchedule, setShowSchedule] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // สถานะตอนอัปโหลด
+  const [isUploading, setIsUploading] = useState(false);
 
   // 1. ดึงข้อมูล Real-time
   useEffect(() => {
@@ -49,10 +49,18 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
           setOnline(isOnline);
 
           if (isOnline) {
-            const fileRes = await fetch(`http://localhost/api/get_node_file.php?ip=${node.ip}&port=${node.port}`);
-            const fileData = await fileRes.json();
-            if (isMounted && fileData.status === 'success') {
-              setFiles(fileData.files || []);
+            try {
+              // แก้ไข: เติม s ที่ get_node_files.php ให้ตรงกับไฟล์ใน Backend
+              const fileRes = await fetch(`http://localhost/api/get_node_files.php?ip=${node.ip}&port=${node.port}`);
+              const fileData = await fileRes.json();
+              if (isMounted && fileData.status === 'success') {
+                setFiles(fileData.files || []);
+              } else {
+                if (isMounted) setFiles([]);
+              }
+            } catch (fileErr) {
+              console.error("Error fetching files:", fileErr);
+              if (isMounted) setFiles([]); 
             }
           } else {
             if (isMounted) setFiles([]);
@@ -61,6 +69,7 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
           setOnline(false);
         }
       } catch (err) {
+        console.error("Status check error:", err);
         if (isMounted) setOnline(false);
       }
     };
@@ -167,7 +176,6 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
             {/* Body */}
             <div className="px-5 py-4 bg-gradient-to-br from-[#faebe1] to-[#e8d5c8] relative">
               
-              {/* ม่านโหลดตอนอัปโหลด */}
               {isUploading && (
                  <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center font-bold text-[#48A0D8] animate-pulse rounded-b-[20px]">
                     กำลังอัปโหลดไฟล์...
@@ -218,7 +226,6 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
-                    {/* เปลี่ยนเป็น label เพื่อให้กด Upload File ได้ */}
                     <label className="w-full flex items-center justify-between text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm hover:bg-gray-50 transition-colors cursor-pointer">
                       <span>อัปโหลด</span><CloudUpload size={16} />
                       <input type="file" accept=".mp3" className="hidden" onChange={handleUpload} />
