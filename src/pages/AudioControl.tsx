@@ -48,9 +48,17 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
           const isOnline = statusData.online;
           setOnline(isOnline);
 
+          // เช็คชื่อเพลงที่กำลังเล่นจริงจาก ESP32
+          // 🔥 แก้ไขบั๊กสถานะเพลง: เช็คเพิ่มว่าหากบอร์ดส่งค่ามาเป็น None หรือค่าว่าง ให้ถือว่าไม่ได้เล่นเพลง
+          if (statusData.song && statusData.song !== "" && statusData.song.toLowerCase() !== "none" && statusData.song.toLowerCase() !== "/none") {
+            setIsPlaying(true);
+            setSelectedFile(statusData.song.replace(/^\//, '')); 
+          } else {
+            setIsPlaying(false);
+          }
+
           if (isOnline) {
             try {
-              // แก้ไข: เติม s ที่ get_node_files.php ให้ตรงกับไฟล์ใน Backend
               const fileRes = await fetch(`http://localhost/api/get_node_files.php?ip=${node.ip}&port=${node.port}`);
               const fileData = await fileRes.json();
               if (isMounted && fileData.status === 'success') {
@@ -85,16 +93,23 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
 
   // 2. ฟังก์ชันสั่งเล่นเพลง
   const handlePlay = async () => {
-    if (!selectedFile || !online) return;
+    // 🔥 แก้ไขบั๊ก: ถ้ายังไม่ได้เลือกไฟล์เพลง หรือยังไม่ได้โหลดรายการไฟล์สำเร็จ จะไม่ยอมให้สั่งเล่น
+    if (!selectedFile || selectedFile === "" || !online) {
+      alert("กรุณาเลือกไฟล์เพลงก่อนกดเล่นครับ");
+      return;
+    }
+    
     try {
-      const formData = new FormData();
-      formData.append('ip', node.ip);
-      formData.append('port', node.port);
-      formData.append('file', selectedFile);
-      await fetch('http://localhost/api/play_audio.php', { method: 'POST', body: formData });
+      let filePath = selectedFile;
+      if (filePath[0] !== '/') {
+        filePath = '/' + filePath;
+      }
+      const url = `http://localhost/api/process_broadcast.php?action=play_single&ip=${node.ip}&port=${node.port}&file=${encodeURIComponent(filePath)}`;
+      await fetch(url, { method: 'GET' });
       setIsPlaying(true);
     } catch (error) {
       console.error("Play error:", error);
+      alert('เกิดข้อผิดพลาดในการสั่งเล่นเพลง');
     }
   };
 
@@ -102,13 +117,14 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
   const handleStop = async () => {
     if (!online) return;
     try {
-      const formData = new FormData();
-      formData.append('ip', node.ip);
-      formData.append('port', node.port);
-      await fetch('http://localhost/api/stop_audio.php', { method: 'POST', body: formData });
+      const url = `http://localhost/api/process_broadcast.php?action=stop_single&ip=${node.ip}&port=${node.port}`;
+      await fetch(url, { method: 'GET' });
       setIsPlaying(false);
+      // 🔥 ป้องกันบั๊กจำค่าค้าง: เมื่อกดหยุดเพลงให้เคลียร์การเลือกไฟล์ไปด้วย
+      setSelectedFile(''); 
     } catch (error) {
       console.error("Stop error:", error);
+      alert('เกิดข้อผิดพลาดในการสั่งหยุดเพลง');
     }
   };
 
@@ -117,26 +133,42 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
     const file = e.target.files?.[0];
     if (!file || !online) return;
     
+    // 🔥 แก้ไขตรวจสอบไฟล์: บังคับเช็คเฉพาะนามสกุลไฟล์ .mp3 เท่านั้น
+    if (!file.name.match(/\.(mp3)$/i)) {
+      alert("ระบบรองรับเฉพาะไฟล์เพลงนามสกุล .mp3 เท่านั้นครับ");
+      return;
+    }
+
     setIsUploading(true);
     try {
       const formData = new FormData();
+      formData.append('audioFile', file);
       formData.append('ip', node.ip);
-      formData.append('port', node.port);
-      formData.append('fileToUpload', file);
+      formData.append('port', node.port.toString());
       
-      const res = await fetch('http://localhost/api/upload_audio.php', { method: 'POST', body: formData });
+      const res = await fetch('http://localhost/api/upload_audio.php', { 
+        method: 'POST', 
+        body: formData 
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server Error: ${res.status}`);
+      }
+
       const data = await res.json();
       
       if(data.status === 'success') {
-         alert('อัปโหลดไฟล์สำเร็จ!');
+          alert('อัปโหลดไฟล์สำเร็จ!');
+          setFiles(prev => [...prev, file.name]);
       } else {
-         alert('อัปโหลดล้มเหลว: ' + data.message);
+          alert('อัปโหลดล้มเหลว: ' + data.message);
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      alert('เกิดข้อผิดพลาดในการอัปโหลด');
     } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -144,13 +176,8 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
   const handleSetVolume = async (newVolume: number) => {
     if (!online) return;
     try {
-      const formData = new FormData();
-      formData.append('node_id', node.id);
-      formData.append('ip', node.ip);
-      formData.append('port', node.port);
-      formData.append('volume', newVolume.toString());
-      
-      await fetch('http://localhost/api/set_volume.php', { method: 'POST', body: formData });
+      const url = `http://localhost/api/process_broadcast.php?action=vol_single&id=${node.id}&ip=${node.ip}&port=${node.port}&v=${newVolume}`;
+      await fetch(url, { method: 'GET' });
     } catch (error) {
       console.error("Volume Error:", error);
     }
@@ -199,10 +226,19 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
 
               <div className="flex justify-between items-center gap-4">
                 <div className="flex gap-2 shrink-0">
-                  <button onClick={handlePlay} className={`w-12 h-[34px] flex items-center justify-center rounded-xl shadow-md ${online ? 'bg-[#519455] hover:scale-105' : 'bg-gray-400 opacity-50 cursor-not-allowed'}`} disabled={!online}>
+                  {/* 🔥 ปุ่ม Play: จะถูก disabled หรือกดไม่ได้ ถ้ายังไม่ได้เลือกไฟล์เพลง เพื่อกันบั๊ก */}
+                  <button 
+                    onClick={handlePlay} 
+                    className={`w-12 h-[34px] flex items-center justify-center rounded-xl shadow-md ${online && selectedFile ? 'bg-[#519455] hover:scale-105' : 'bg-gray-400 opacity-50 cursor-not-allowed'}`} 
+                    disabled={!online || !selectedFile}
+                  >
                     <Play size={16} fill="white" className="text-white" />
                   </button>
-                  <button onClick={handleStop} className={`w-12 h-[34px] flex items-center justify-center rounded-xl shadow-md ${online ? 'bg-[#A63535] hover:scale-105' : 'bg-gray-400 opacity-50 cursor-not-allowed'}`} disabled={!online}>
+                  <button 
+                    onClick={handleStop} 
+                    className={`w-12 h-[34px] flex items-center justify-center rounded-xl shadow-md ${online ? 'bg-[#A63535] hover:scale-105' : 'bg-gray-400 opacity-50 cursor-not-allowed'}`} 
+                    disabled={!online}
+                  >
                     <Pause size={16} fill="white" className="text-white" />
                   </button>
                 </div>
@@ -226,6 +262,7 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
+                    {/* 🔥 เพิ่ม accept=".mp3" ในส่วน input ให้เปิดเลือกหน้าต่างเฉพาะ .mp3 เท่านั้นตั้งแต่แรก */}
                     <label className="w-full flex items-center justify-between text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm hover:bg-gray-50 transition-colors cursor-pointer">
                       <span>อัปโหลด</span><CloudUpload size={16} />
                       <input type="file" accept=".mp3" className="hidden" onChange={handleUpload} />
@@ -242,8 +279,9 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
               {online && (
                 <div className="mt-4 pt-3 border-t border-gray-300/40 text-[12px] font-extrabold flex justify-between">
                   <span className="shrink-0">สถานะ</span>
-                  <span className={`truncate text-right pl-2 ${isPlaying ? "text-[#519455]" : "text-[#A63535]"}`}>
-                    {isPlaying ? `กำลังเล่น : ${selectedFile || '-'}` : 'หยุดเล่น'}
+                  {/* 🔥 หากไม่มีไฟล์ หรือไฟล์ระบุเป็นค่าว่าง/none จะไม่พ่น 'กำลังเล่น: none' ออกมาป่วนผู้ใช้ */}
+                  <span className={`truncate text-right pl-2 ${isPlaying && selectedFile ? "text-[#519455]" : "text-[#A63535]"}`}>
+                    {isPlaying && selectedFile ? `กำลังเล่น : ${selectedFile}` : 'หยุดเล่น'}
                   </span>
                 </div>
               )}
@@ -415,7 +453,7 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
              ) : schedules.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 font-bold">ยังไม่มีตารางเวลาสำหรับเสานี้</div>
              ) : (
-               schedules.map(s => (
+                schedules.map(s => (
                  <div key={s.id} className="grid grid-cols-12 p-4 border-b border-gray-100 items-center text-sm hover:bg-gray-50">
                     <div className="col-span-3 font-bold">{s.days}</div>
                     <div className="col-span-3">{s.time}</div>
@@ -427,7 +465,7 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
                        </button>
                     </div>
                  </div>
-               ))
+                ))
              )}
           </div>
         </div>
