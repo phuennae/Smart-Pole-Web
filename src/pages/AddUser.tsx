@@ -13,7 +13,10 @@ export default function AddUser() {
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
 
   const handleAdd = () => {
-    if (!form.name || !form.password) return;
+    if (!form.name || !form.password) {
+      alert("กรุณากรอกชื่อและรหัสผ่านให้ครบถ้วนครับ");
+      return;
+    }
     addUser({
       id: `user-${Date.now()}`,
       name: form.name,
@@ -24,13 +27,19 @@ export default function AddUser() {
   };
 
   const openEdit = (user: UserItem) => {
-    setEditingUser(user);
+    // 🔥 จุดสำคัญ: เวลาเปิดหน้าแก้ไข ต้องล้างช่อง password ให้ว่างเสมอ
+    // เพื่อให้ส่งไปแค่รหัสผ่านใหม่ (ถ้ามี) หากว่างไว้ Backend จะได้รู้ว่าไม่ต้องเปลี่ยนรหัสผ่าน
+    setEditingUser({ ...user, password: '' }); 
     setIsEditOpen(true);
   };
 
   const handleSaveEdit = () => {
     if (editingUser) {
-      updateUser(editingUser);
+      if (!editingUser.name) {
+        alert("ชื่อสมาชิกต้องไม่เป็นค่าว่างครับ");
+        return;
+      }
+      updateUser(editingUser); // ส่งข้อมูลไปให้ UserContext จัดการต่อ
       setIsEditOpen(false);
       setEditingUser(null);
     }
@@ -118,7 +127,8 @@ export default function AddUser() {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">รหัสผ่านใหม่ (ปล่อยว่างถ้าไม่เปลี่ยน)</label>
-                <input type="text" value={editingUser.password} onChange={e => setEditingUser({...editingUser, password: e.target.value})} className="w-full p-2.5 rounded-xl border-0 shadow-sm outline-none" />
+                {/* ช่องรหัสผ่านจะเริ่มต้นด้วยค่าว่างเสมอ ตามที่ตั้งค่าไว้ใน openEdit */}
+                <input type="text" placeholder="กรอกรหัสผ่านใหม่ (ถ้ามี)" value={editingUser.password || ''} onChange={e => setEditingUser({...editingUser, password: e.target.value})} className="w-full p-2.5 rounded-xl border-0 shadow-sm outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">สิทธิ์การเข้าถึง</label>
