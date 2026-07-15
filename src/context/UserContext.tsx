@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-
-const API_URL = 'http://171.99.250.125/api';
+import { API_URL } from '../config';
 
 export interface UserItem {
   id: string;
