@@ -22,11 +22,12 @@ export default function Login() {
   };
 
   return (
-    // เปลี่ยนเป็น flex-col บนมือถือ และ md:flex-row บนจอใหญ่
-    <div className="flex flex-col md:flex-row min-h-screen w-full bg-white font-sans">
+    // ✅ เปลี่ยนเป็น min-h-screen บนมือถือ และ md:h-screen บนจอคอม
+    <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-white font-sans">
       
-      {/* ฝั่งซ้าย (หรือด้านบนบนมือถือ): โลโก้แถบสีน้ำเงิน */}
-      <div className="w-full md:w-[320px] bg-[#3B7BBD] md:h-full flex flex-col items-center justify-center p-8 md:p-6 text-white shadow-xl z-10 shrink-0">
+      {/* ฝั่งซ้าย: โลโก้แถบสีน้ำเงิน */}
+      {/* ✅ ปล่อยให้ flex ยืดความสูงอัตโนมัติ ไม่ต้องใส่ h-full */}
+      <div className="w-full md:w-[320px] bg-[#3B7BBD] flex flex-col items-center justify-center p-8 md:p-6 text-white shadow-xl z-10 shrink-0">
         <div className="w-32 h-32 md:w-56 md:h-56 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md mb-4 md:mb-8">
           <img src="/logo.png" alt="FAR FORWARD Logo" className="w-[75%] h-[75%] object-contain" />
         </div>
@@ -34,10 +35,9 @@ export default function Login() {
         <h2 className="text-base md:text-lg font-medium text-center">ระบบเสียงตามสายอัจฉริยะ</h2>
       </div>
 
-      {/* ฝั่งขวา (หรือด้านล่างบนมือถือ): ฟอร์มล็อกอิน */}
-      <div className="flex-1 flex items-center justify-center bg-white p-4 relative">
-        {/* เปลี่ยนจาก w-[600px] เป็น w-full max-w-[600px] เพื่อให้ย่อตามจอมือถือได้ */}
-        <div className="w-full max-w-[600px] rounded-[20px] shadow-[0_0_20px_rgba(0,0,0,0.1)] overflow-hidden">
+      {/* ฝั่งขวา: ฟอร์มล็อกอิน */}
+      <div className="flex-1 flex items-center justify-center bg-white p-4 relative overflow-y-auto">
+        <div className="w-full max-w-[600px] rounded-[20px] shadow-[0_0_20px_rgba(0,0,0,0.1)] overflow-hidden my-auto">
           
           {/* Header สีฟ้า */}
           <div className="bg-[#48A0D8] p-4 md:p-5 flex items-center gap-3 text-white">

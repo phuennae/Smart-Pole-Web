@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { API_URL } from '../config';
+
+const API_URL = 'http://171.99.250.125/api';
 
 export interface UserItem {
   id: string;
   name: string;
   role: 'ADMIN' | 'USER';
   password?: string;
+  session_token?: string; 
 }
 
 interface UserContextType {
@@ -23,22 +25,57 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<UserItem[]>([]);
   
-  // โหลดสถานะล็อกอินจาก LocalStorage
+  // ✅ เปลี่ยนมาใช้ sessionStorage เพื่อให้ลืมการล็อกอินเมื่อปิดเบราว์เซอร์
   const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
-    const saved = localStorage.getItem('currentUser');
+    const saved = sessionStorage.getItem('currentUser');
     return saved ? JSON.parse(saved) : null;
   });
 
-  // ดึงข้อมูลรายชื่อผู้ใช้จาก Database ทันทีที่เปิดเว็บ
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // ระบบคอยเช็คการล็อกอินซ้อน (ทุกๆ 10 วินาที)
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const verifySession = async () => {
+      if (!currentUser || !currentUser.session_token) return;
+
+      try {
+        const formData = new FormData();
+        formData.append('id', currentUser.id);
+        formData.append('token', currentUser.session_token);
+
+        const res = await fetch(`${API_URL}/check_session.php`, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (!data.valid) {
+          alert('มีการเข้าสู่ระบบจากอุปกรณ์อื่น คุณได้ถูกออกจากระบบ');
+          logout();
+          window.location.href = '/login'; 
+        }
+      } catch (error) {
+        console.error('Session verification error:', error);
+      }
+    };
+
+    if (currentUser) {
+      intervalId = setInterval(verifySession, 10000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [currentUser]);
 
   const fetchUsers = async () => {
     try {
       const res = await fetch(`${API_URL}/get_users.php`);
       const data = await res.json();
-      
       const formattedUsers = data.map((u: any) => ({
         id: u.id.toString(),
         name: u.username || u.name || '',
@@ -70,29 +107,28 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         const loggedInUser: UserItem = {
           id: data.user?.id?.toString() || '0',
           name: data.user?.username || username,
-          role: (normalizedRole === 'ADMIN' ? 'ADMIN' : 'USER') as 'ADMIN' | 'USER', 
+          role: (normalizedRole === 'ADMIN' ? 'ADMIN' : 'USER') as 'ADMIN' | 'USER',
+          session_token: data.session_token 
         };
 
         setCurrentUser(loggedInUser);
-        localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
+        // ✅ เปลี่ยนมาบันทึกแค่ชั่วคราวใน sessionStorage
+        sessionStorage.setItem('currentUser', JSON.stringify(loggedInUser));
         return true;
       }
       return false;
     } catch (error) {
       console.error('Login error:', error);
-      // 🔥 Warning: ระบบ Fallback นี้ควรลบทิ้งเมื่อขึ้น Production จริงเพื่อความปลอดภัย
-      if (username === 'admin' && pass === '123456') {
-        const fallbackUser: UserItem = { id: 'admin-1', name: 'admin', role: 'ADMIN' };
-        setCurrentUser(fallbackUser);
-        localStorage.setItem('currentUser', JSON.stringify(fallbackUser));
-        return true;
-      }
       return false;
     }
   };
 
   const logout = () => {
     setCurrentUser(null);
+    // ✅ สั่งลบข้อมูลออกจาก sessionStorage
+    sessionStorage.removeItem('currentUser');
+    
+    // เผื่อมีของเก่าหลงเหลืออยู่ใน localStorage ให้เคลียร์ทิ้งไปด้วย
     localStorage.removeItem('currentUser');
   };
 
