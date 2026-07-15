@@ -15,7 +15,6 @@ interface UserContextType {
   updateUser: (updatedUser: UserItem) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   currentUser: UserItem | null;
-  // ✅ เปลี่ยนจากคืนค่า boolean เป็นคืนค่า object ที่มี message ด้วย
   login: (username: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }
@@ -25,8 +24,9 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<UserItem[]>([]);
   
+  // ✅ กลับมาใช้ localStorage เพื่อให้เปิดแท็บใหม่ได้โดยไม่ต้องล็อกอินซ้ำ
   const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
-    const saved = sessionStorage.getItem('currentUser');
+    const saved = localStorage.getItem('currentUser');
     return saved ? JSON.parse(saved) : null;
   });
 
@@ -52,9 +52,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         });
         const data = await res.json();
 
-        // ถ้า Session โดนลบ ให้เด้งออก
+        // ถ้า Session โดนลบ หรือขาดการติดต่อนานเกินไป ให้เด้งออก
         if (!data.valid) {
-          sessionStorage.removeItem('currentUser');
+          localStorage.removeItem('currentUser');
           setCurrentUser(null);
           window.location.href = '/login'; 
         }
@@ -76,12 +76,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await fetch(`${API_URL}/get_users.php`);
       const data = await res.json();
-      const formattedUsers = data.map((u: any) => ({
-        id: u.id.toString(),
-        name: u.username || u.name || '',
-        role: u.role || 'USER',
-        password: u.password || ''
-      }));
+      
+      const formattedUsers = data.map((u: any) => {
+        const rawRole = u.role ? u.role.toUpperCase() : 'USER';
+        const finalRole = ['ADMIN', 'MANAGER'].includes(rawRole) ? rawRole : 'USER';
+
+        return {
+          id: u.id.toString(),
+          name: u.username || u.name || '',
+          role: finalRole as 'ADMIN' | 'MANAGER' | 'USER',
+          password: u.password || ''
+        };
+      });
+      
       setUsers(formattedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -112,10 +119,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         };
 
         setCurrentUser(loggedInUser);
-        sessionStorage.setItem('currentUser', JSON.stringify(loggedInUser));
+        // ✅ บันทึกลง localStorage
+        localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
         return { success: true };
       }
-      // ✅ ส่งข้อความจาก Backend กลับไปให้หน้าจอ
       return { success: false, message: data.message };
     } catch (error) {
       return { success: false, message: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
@@ -123,7 +130,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    // แจ้ง Database ว่าขอออกระบบ ล้างตั๋วทิ้งได้เลย
     if (currentUser) {
       try {
         const formData = new FormData();
@@ -134,7 +140,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     setCurrentUser(null);
-    sessionStorage.removeItem('currentUser');
+    // ✅ ลบออกจาก localStorage
+    localStorage.removeItem('currentUser');
   };
 
   const addUser = async (user: UserItem) => {
