@@ -4,7 +4,7 @@ import { API_URL } from '../config';
 export interface UserItem {
   id: string;
   name: string;
-  role: 'ADMIN' | 'USER';
+  role: 'ADMIN' | 'MANAGER' | 'USER';
   password?: string;
   session_token?: string; 
 }
@@ -15,7 +15,8 @@ interface UserContextType {
   updateUser: (updatedUser: UserItem) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   currentUser: UserItem | null;
-  login: (username: string, pass: string) => Promise<boolean>;
+  // ✅ เปลี่ยนจากคืนค่า boolean เป็นคืนค่า object ที่มี message ด้วย
+  login: (username: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }
 
@@ -24,7 +25,6 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<UserItem[]>([]);
   
-  // ✅ เปลี่ยนมาใช้ sessionStorage เพื่อให้ลืมการล็อกอินเมื่อปิดเบราว์เซอร์
   const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
     const saved = sessionStorage.getItem('currentUser');
     return saved ? JSON.parse(saved) : null;
@@ -34,7 +34,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     fetchUsers();
   }, []);
 
-  // ระบบคอยเช็คการล็อกอินซ้อน (ทุกๆ 10 วินาที)
+  // ระบบหัวใจเต้น เช็คทุก 10 วินาที
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
 
@@ -52,9 +52,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         });
         const data = await res.json();
 
+        // ถ้า Session โดนลบ ให้เด้งออก
         if (!data.valid) {
-          alert('มีการเข้าสู่ระบบจากอุปกรณ์อื่น คุณได้ถูกออกจากระบบ');
-          logout();
+          sessionStorage.removeItem('currentUser');
+          setCurrentUser(null);
           window.location.href = '/login'; 
         }
       } catch (error) {
@@ -99,36 +100,41 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       });
       const data = await res.json();
 
-      if (data.status === 'success' || data.success) {
+      if (data.status === 'success') {
         const rawRole = data.user?.role || 'USER'; 
         const normalizedRole = rawRole.toUpperCase(); 
 
         const loggedInUser: UserItem = {
           id: data.user?.id?.toString() || '0',
           name: data.user?.username || username,
-          role: (normalizedRole === 'ADMIN' ? 'ADMIN' : 'USER') as 'ADMIN' | 'USER',
+          role: (['ADMIN', 'MANAGER'].includes(normalizedRole) ? normalizedRole : 'USER') as 'ADMIN' | 'MANAGER' | 'USER',
           session_token: data.session_token 
         };
 
         setCurrentUser(loggedInUser);
-        // ✅ เปลี่ยนมาบันทึกแค่ชั่วคราวใน sessionStorage
         sessionStorage.setItem('currentUser', JSON.stringify(loggedInUser));
-        return true;
+        return { success: true };
       }
-      return false;
+      // ✅ ส่งข้อความจาก Backend กลับไปให้หน้าจอ
+      return { success: false, message: data.message };
     } catch (error) {
-      console.error('Login error:', error);
-      return false;
+      return { success: false, message: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // แจ้ง Database ว่าขอออกระบบ ล้างตั๋วทิ้งได้เลย
+    if (currentUser) {
+      try {
+        const formData = new FormData();
+        formData.append('id', currentUser.id);
+        await fetch(`${API_URL}/logout.php`, { method: 'POST', body: formData });
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
     setCurrentUser(null);
-    // ✅ สั่งลบข้อมูลออกจาก sessionStorage
     sessionStorage.removeItem('currentUser');
-    
-    // เผื่อมีของเก่าหลงเหลืออยู่ใน localStorage ให้เคลียร์ทิ้งไปด้วย
-    localStorage.removeItem('currentUser');
   };
 
   const addUser = async (user: UserItem) => {

@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2 } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
+import { useUsers } from '../context/UserContext'; // ✅ ดึง useUsers เข้ามา
 import { API_URL } from '../config';
 
 // --- AutoFit Component ---
@@ -28,6 +29,8 @@ const smartPoleIcon = new Icon({ iconUrl: '/pole.png', iconSize: [40, 80], iconA
 
 // --- AudioPoleMarker Component ---
 function AudioPoleMarker({ node }: { node: NodeItem }) {
+  const { currentUser } = useUsers(); // ✅ เรียกใช้ข้อมูล user ที่ล็อกอินอยู่
+
   const [online, setOnline] = useState(false);
   const [files, setFiles] = useState<string[]>([]);
   const [volume, setVolume] = useState(node.volume ?? 80); 
@@ -128,6 +131,12 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
 
   // 4. ฟังก์ชันอัปโหลดไฟล์
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // ✅ ดักไว้ก่อนเลยว่าถ้าเป็น USER ห้ามทำงานฟังก์ชันนี้
+    if (currentUser?.role === 'USER') {
+      alert("สิทธิ์ผู้ใช้งานทั่วไป ไม่สามารถอัปโหลดไฟล์เพลงได้ครับ");
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (!file || !online) return;
     
@@ -243,32 +252,40 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
                   <div className="flex-1 flex justify-center items-center h-full min-h-[50px]">
                     <span className="font-serif text-[18px] font-bold text-black">Node Offline</span>
                   </div>
-                ) : files.length > 0 ? (
-                  <div className="flex flex-col gap-2 flex-1 min-w-0">
-                    <div className="relative">
-                      <select 
-                        value={selectedFile} 
-                        onChange={(e) => setSelectedFile(e.target.value)} 
-                        className="w-full appearance-none text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm truncate"
-                      >
-                        <option value="">เลือกไฟล์...</option>
-                        {files.map(f => (
-                          <option key={f} value={f}>{f}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                    <label className="w-full flex items-center justify-between text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm hover:bg-gray-50 transition-colors cursor-pointer">
-                      <span>อัปโหลด</span><CloudUpload size={16} />
-                      <input type="file" accept=".mp3" className="hidden" onChange={handleUpload} />
-                    </label>
-                  </div>
                 ) : (
-                  <div className="flex-1 flex justify-center items-center h-full min-h-[50px]">
-                    <span className="text-[13px] font-bold text-gray-500 bg-white/50 px-4 py-1.5 rounded-full shadow-sm">ไม่พบไฟล์เพลง</span>
+                  // ✅ ปรับโครงสร้างส่วนแสดงไฟล์ให้รองรับการซ่อนปุ่มอัปโหลด
+                  <div className="flex flex-col gap-2 flex-1 min-w-0">
+                    
+                    {/* ส่วนแสดงรายชื่อไฟล์เพลง */}
+                    {files.length > 0 ? (
+                      <div className="relative">
+                        <select 
+                          value={selectedFile} 
+                          onChange={(e) => setSelectedFile(e.target.value)} 
+                          className="w-full appearance-none text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm truncate"
+                        >
+                          <option value="">เลือกไฟล์...</option>
+                          {files.map(f => (
+                            <option key={f} value={f}>{f}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    ) : (
+                      <div className="flex justify-center items-center h-[34px]">
+                        <span className="text-[13px] font-bold text-gray-500 bg-white/50 px-4 py-1 rounded-full shadow-sm">ไม่พบไฟล์เพลง</span>
+                      </div>
+                    )}
+
+                    {/* ✅ ส่วนอัปโหลดไฟล์: ซ่อนเมื่อ role เป็น USER */}
+                    {currentUser?.role !== 'USER' && (
+                      <label className="w-full flex items-center justify-between text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm hover:bg-gray-50 transition-colors cursor-pointer">
+                        <span>อัปโหลด</span><CloudUpload size={16} />
+                        <input type="file" accept=".mp3" className="hidden" onChange={handleUpload} />
+                      </label>
+                    )}
                   </div>
                 )}
-
               </div>
 
               {online && (

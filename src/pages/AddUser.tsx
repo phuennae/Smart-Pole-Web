@@ -5,10 +5,9 @@ import { useUsers, type UserItem } from '../context/UserContext';
 export default function AddUser() {
   const { users, addUser, deleteUser, updateUser } = useUsers();
   
-  // State สำหรับเพิ่ม
-  const [form, setForm] = useState({ name: '', password: '', role: 'USER' as 'ADMIN' | 'USER' });
+  // ✅ แก้ไข: เพิ่ม MANAGER เข้าไปในประเภทข้อมูลเริ่มต้น
+  const [form, setForm] = useState({ name: '', password: '', role: 'USER' as 'ADMIN' | 'MANAGER' | 'USER' });
   
-  // State สำหรับ Edit Modal
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
 
@@ -27,8 +26,6 @@ export default function AddUser() {
   };
 
   const openEdit = (user: UserItem) => {
-    // 🔥 จุดสำคัญ: เวลาเปิดหน้าแก้ไข ต้องล้างช่อง password ให้ว่างเสมอ
-    // เพื่อให้ส่งไปแค่รหัสผ่านใหม่ (ถ้ามี) หากว่างไว้ Backend จะได้รู้ว่าไม่ต้องเปลี่ยนรหัสผ่าน
     setEditingUser({ ...user, password: '' }); 
     setIsEditOpen(true);
   };
@@ -39,7 +36,7 @@ export default function AddUser() {
         alert("ชื่อสมาชิกต้องไม่เป็นค่าว่างครับ");
         return;
       }
-      updateUser(editingUser); // ส่งข้อมูลไปให้ UserContext จัดการต่อ
+      updateUser(editingUser); 
       setIsEditOpen(false);
       setEditingUser(null);
     }
@@ -66,9 +63,11 @@ export default function AddUser() {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-2 text-gray-700 ml-1">สิทธิ์การเข้าถึง</label>
-                <select value={form.role} onChange={e => setForm({...form, role: e.target.value as 'ADMIN' | 'USER'})} className="w-full p-2.5 rounded-xl border-0 shadow-sm outline-none focus:ring-2 ring-[#48A0D8]">
-                  <option value="USER">USER</option>
-                  <option value="ADMIN">ADMIN</option>
+                {/* ✅ แก้ไข: เพิ่มเงื่อนไข MANAGER */}
+                <select value={form.role} onChange={e => setForm({...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'USER'})} className="w-full p-2.5 rounded-xl border-0 shadow-sm outline-none focus:ring-2 ring-[#48A0D8]">
+                  <option value="USER">USER (ผู้ใช้งาน)</option>
+                  <option value="MANAGER">MANAGER (ผู้จัดการ)</option>
+                  <option value="ADMIN">ADMIN (ผู้ดูแลระบบ)</option>
                 </select>
               </div>
               <div>
@@ -131,9 +130,11 @@ export default function AddUser() {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">สิทธิ์การเข้าถึง</label>
-                <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as 'ADMIN' | 'USER'})} className="w-full p-2.5 rounded-xl border-0 shadow-sm outline-none">
-                  <option value="USER">USER</option>
-                  <option value="ADMIN">ADMIN</option>
+                {/* ✅ แก้ไข: เพิ่มเงื่อนไข MANAGER */}
+                <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as 'ADMIN' | 'MANAGER' | 'USER'})} className="w-full p-2.5 rounded-xl border-0 shadow-sm outline-none">
+                  <option value="USER">USER (ผู้ใช้งาน)</option>
+                  <option value="MANAGER">MANAGER (ผู้จัดการ)</option>
+                  <option value="ADMIN">ADMIN (ผู้ดูแลระบบ)</option>
                 </select>
               </div>
             </div>
