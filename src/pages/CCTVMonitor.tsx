@@ -4,6 +4,7 @@ import {
   ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square,
   ZoomIn, ZoomOut, VideoOff, Video
 } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Camera {
   id: number;
@@ -28,7 +29,7 @@ export default function CCTVMonitor() {
     const fetchData = async () => {
       try {
         // 1. ดึงข้อมูลตัวกล้อง
-        const camRes = await fetch('http://localhost/api/get_cameras.php');
+        const camRes = await fetch(`${API_URL}/get_cameras.php`);
         const camData = await camRes.json();
         if (camData.status === 'success') {
           const found = camData.data.find((c: Camera) => c.id.toString() === nodeId);
@@ -36,7 +37,7 @@ export default function CCTVMonitor() {
         }
 
         // 2. ดึงข้อมูลสถานะ Online/Offline ของเสา
-        const statusRes = await fetch(`http://localhost/api/get_node_status.php?id=${nodeId}`);
+        const statusRes = await fetch(`${API_URL}/get_node_status.php?id=${nodeId}`);
         const statusData = await statusRes.json();
         if (statusData.status === 'success') {
           setIsNodeOnline(statusData.online); 
@@ -70,7 +71,7 @@ export default function CCTVMonitor() {
         speed: 0.5
       };
 
-      const response = await fetch('http://localhost/api/ptz_proxy.php', {
+      const response = await fetch(`${API_URL}/ptz_proxy.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

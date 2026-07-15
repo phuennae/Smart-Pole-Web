@@ -11,9 +11,9 @@ export default function Login() {
   const { login } = useUsers();
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => { // เติม async
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(username, password); // เติม await
+    const success = await login(username, password);
     if (success) {
       navigate('/');
     } else {

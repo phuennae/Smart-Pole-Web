@@ -6,6 +6,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { renderToString } from 'react-dom/server';
 import { useNodes, type NodeItem } from '../context/NodeContext';
+import { API_URL } from '../config';
 
 // --- AutoFit Component ---
 function AutoFit() {
@@ -33,7 +34,7 @@ function CCTVPoleMarker({ node }: { node: NodeItem }) {
 
     const fetchStatus = async () => {
       try {
-        const res = await fetch(`http://localhost/api/get_node_status.php?id=${node.id}`);
+        const res = await fetch(`${API_URL}/get_node_status.php?id=${node.id}`);
         const data = await res.json();
         
         if (isMounted && data.status === 'success') {

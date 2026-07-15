@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Chart from 'chart.js/auto';
 import { useNodes } from '../context/NodeContext';
+import { API_URL } from '../config';
 
 const TB_URL = "http://theoneiot.i234.me:9090";
 
@@ -41,7 +42,7 @@ export default function EnergyMonitor() {
     login();
   }, []);
 
-  // 2. สร้างโครงสร้างกราฟ (🔥 เปลี่ยน fill เป็น false เพื่อเอาสีพื้นหลังออก)
+  // 2. สร้างโครงสร้างกราฟ
   useEffect(() => {
     if (!chartRef.current) return;
     
@@ -83,11 +84,11 @@ export default function EnergyMonitor() {
     };
   }, []);
 
-  // 3. ระบบดึงข้อมูลสดๆ (Dynamic Hybrid Fetch)
+  // 3. ระบบดึงข้อมูลสดๆ
   useEffect(() => {
     const fetchRealtime = async () => {
       try {
-        const rLocal = await fetch(`http://localhost/api/get_node_status.php?id=${nodeId}`);
+        const rLocal = await fetch(`${API_URL}/get_node_status.php?id=${nodeId}`);
         const dLocal = await rLocal.json();
         
         let v = null, c = null, p = null;

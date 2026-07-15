@@ -47,28 +47,27 @@ export default function AddNode() {
             <Plus size={24} /> เพิ่มอุปกรณ์ใหม่
           </div>
           <div className="p-4 md:p-6">
-             {/* ปรับจาก grid-cols-5 ตายตัว เป็นเรียงแถวละ 1 ช่องบนมือถือ และ 5 ช่องบนจอใหญ่ */}
              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end">
-                <div>
-                  <label className="block text-xs font-bold mb-2">ชื่อจุดติดตั้ง</label>
-                  <input type="text" placeholder="เช่น Node A" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#48A0D8]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold mb-2">IP Address / Domain</label>
-                  <input type="text" placeholder="192.168.1.1" value={form.ip} onChange={e => setForm({...form, ip: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold mb-2">Port</label>
-                  <input type="text" placeholder="8080" value={form.port} onChange={e => setForm({...form, port: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold mb-2">Latitude</label>
-                  <input type="number" step="any" placeholder="18.795..." value={form.lat} onChange={e => setForm({...form, lat: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold mb-2">Longitude</label>
-                  <input type="number" step="any" placeholder="98.952..." value={form.lng} onChange={e => setForm({...form, lng: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
-                </div>
+               <div>
+                 <label className="block text-xs font-bold mb-2">ชื่อจุดติดตั้ง</label>
+                 <input type="text" placeholder="เช่น Node A" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#48A0D8]" />
+               </div>
+               <div>
+                 <label className="block text-xs font-bold mb-2">IP Address / Domain</label>
+                 <input type="text" placeholder="192.168.1.1" value={form.ip} onChange={e => setForm({...form, ip: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+               </div>
+               <div>
+                 <label className="block text-xs font-bold mb-2">Port</label>
+                 <input type="text" placeholder="8080" value={form.port} onChange={e => setForm({...form, port: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+               </div>
+               <div>
+                 <label className="block text-xs font-bold mb-2">Latitude</label>
+                 <input type="number" step="any" placeholder="18.795..." value={form.lat} onChange={e => setForm({...form, lat: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+               </div>
+               <div>
+                 <label className="block text-xs font-bold mb-2">Longitude</label>
+                 <input type="number" step="any" placeholder="98.952..." value={form.lng} onChange={e => setForm({...form, lng: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+               </div>
              </div>
              <div className="flex justify-center mt-6">
                 <button onClick={handleAdd} className="bg-[#48A0D8] text-white px-12 py-2.5 rounded-lg font-bold hover:bg-blue-600 transition-all w-full sm:w-auto">
@@ -78,7 +77,7 @@ export default function AddNode() {
           </div>
         </div>
 
-        {/* Block 2: Table - เพิ่ม overflow-x-auto เพื่อป้องกันตารางเบียดจนแตก */}
+        {/* Block 2: Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden w-full">
           <div className="bg-[#48A0D8] p-4 text-white font-bold text-lg">รายการอุปกรณ์ในระบบ</div>
           <div className="overflow-x-auto w-full">
@@ -111,7 +110,7 @@ export default function AddNode() {
         </div>
       </div>
 
-      {/* Edit Modal (Pop-up) รองรับขนาดหน้าจอมือถือ */}
+      {/* Edit Modal (Pop-up) */}
       {isEditOpen && editingNode && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">

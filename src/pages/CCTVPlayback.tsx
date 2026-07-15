@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Search, Play, Square, Clock, Pause, Settings2 } from 'lucide-react';
+import { API_URL } from '../config';
+
+// const WS_URL = 'ws://171.99.250.125:8080';
+const WS_URL = 'ws://localhost:8080';
 
 interface Recording {
   id: string;
@@ -43,7 +47,7 @@ export default function CCTVPlayback() {
       formData.append('camera_id', nodeId || '');
       formData.append('date', date);
 
-      const res = await fetch('http://localhost/api/playback_proxy.php', {
+      const res = await fetch(`${API_URL}/playback_proxy.php`, {
         method: 'POST',
         body: formData
       });
@@ -70,7 +74,7 @@ export default function CCTVPlayback() {
       playerRef.current.destroy();
     }
 
-    const wsUrl = `ws://localhost:8080/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
+    const wsUrl = `${WS_URL}/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
     
     playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
       canvas: canvasRef.current,
@@ -109,7 +113,7 @@ export default function CCTVPlayback() {
       const wasPlaying = isPlaying;
       playerRef.current.destroy();
 
-      const wsUrl = `ws://localhost:8080/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
+      const wsUrl = `${WS_URL}/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
       
       playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
         canvas: canvasRef.current,

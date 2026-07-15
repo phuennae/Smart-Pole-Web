@@ -127,7 +127,6 @@ export default function AddUser() {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">รหัสผ่านใหม่ (ปล่อยว่างถ้าไม่เปลี่ยน)</label>
-                {/* ช่องรหัสผ่านจะเริ่มต้นด้วยค่าว่างเสมอ ตามที่ตั้งค่าไว้ใน openEdit */}
                 <input type="text" placeholder="กรอกรหัสผ่านใหม่ (ถ้ามี)" value={editingUser.password || ''} onChange={e => setEditingUser({...editingUser, password: e.target.value})} className="w-full p-2.5 rounded-xl border-0 shadow-sm outline-none" />
               </div>
               <div>

@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { Mic, Square, AlertTriangle } from 'lucide-react';
 import { useNodes } from '../context/NodeContext';
 import 'leaflet/dist/leaflet.css';
+import { API_URL } from '../config';
 
 // --- AutoFit Component ---
 function AutoFit() {
@@ -43,7 +44,7 @@ export default function Broadcast() {
       // วนลูปเช็คสถานะทุกเสา
       for (const node of nodes) {
         try {
-          const res = await fetch(`http://localhost/api/get_node_status.php?id=${node.id}`);
+          const res = await fetch(`${API_URL}/get_node_status.php?id=${node.id}`);
           const data = await res.json();
           newStatuses[node.id] = data.status === 'success' ? data.online : false;
         } catch {
@@ -112,7 +113,7 @@ export default function Broadcast() {
     try {
       const formData = new FormData();
       formData.append('nodes', JSON.stringify(nodesArray));
-      await fetch('http://localhost/api/broadcast_live.php', { method: 'POST', body: formData });
+      await fetch(`${API_URL}/broadcast_live.php`, { method: 'POST', body: formData });
       setIsBroadcasting(true);
     } catch (error) {
       console.error("Broadcast Error:", error);
@@ -128,7 +129,7 @@ export default function Broadcast() {
     try {
       const formData = new FormData();
       formData.append('nodes', JSON.stringify(nodesArray));
-      await fetch('http://localhost/api/broadcast_stop.php', { method: 'POST', body: formData });
+      await fetch(`${API_URL}/broadcast_stop.php`, { method: 'POST', body: formData });
       setIsBroadcasting(false);
     } catch (error) {
       console.error("Stop Error:", error);
@@ -158,7 +159,7 @@ export default function Broadcast() {
           formData.append('ip', (targetNode as any).ip_address); 
           formData.append('file', 'alarm.mp3'); 
 
-          await fetch('http://localhost/api/play_audio.php', {
+          await fetch(`${API_URL}/play_audio.php`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData
@@ -185,7 +186,7 @@ export default function Broadcast() {
           formData.append('node_id', targetNode.id);
           formData.append('ip', (targetNode as any).ip_address); 
 
-          await fetch('http://localhost/api/stop_audio.php', {
+          await fetch(`${API_URL}/stop_audio.php`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData

@@ -5,6 +5,7 @@ import { Icon } from 'leaflet';
 import { Share } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 
 const TB_URL = "http://theoneiot.i234.me:9090";
 
@@ -44,8 +45,8 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
 
     const fetchRealTimeStatus = async () => {
       try {
-        // 1. ดึงข้อมูล V, A, W และ tb_device_id จากหลังบ้าน PHP ของเรา
-        const res = await fetch(`http://localhost/api/get_node_status.php?id=${node.id}`);
+        // 1. ดึงข้อมูล V, A, W และ tb_device_id จากหลังบ้าน API หลักของเรา
+        const res = await fetch(`${API_URL}/get_node_status.php?id=${node.id}`);
         const result = await res.json();
         
         if (isMounted && result.status === 'success') {
@@ -62,7 +63,7 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
               const dTb = await rTb.json();
               const eRaw = dTb.energy?.[0]?.value;
               if (eRaw !== undefined) {
-                energyVal = parseFloat(eRaw).toString(); // อัปเดตตัวเลขจริงจาก ThingsBoardแทนเลข 0
+                energyVal = parseFloat(eRaw).toString(); // อัปเดตตัวเลขจริงจาก ThingsBoard แทนเลข 0
               }
             } catch (tbErr) {
               console.error(`Failed to fetch Energy from ThingsBoard for Node ${node.id}:`, tbErr);
@@ -83,7 +84,7 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
     };
 
     fetchRealTimeStatus(); 
-    const intervalId = setInterval(fetchRealTimeStatus, 10000); // อัปเดตค่าทุกๆ 10 วินาทีตามสเปกเดิม
+    const intervalId = setInterval(fetchRealTimeStatus, 10000); // อัปเดตค่าทุกๆ 10 วินาที
 
     return () => {
       isMounted = false;

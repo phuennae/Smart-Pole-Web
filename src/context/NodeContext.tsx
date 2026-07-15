@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { API_URL } from '../config';
 
 export interface NodeItem {
   id: string;
@@ -29,9 +30,7 @@ const NodeContext = createContext<NodeContextType | undefined>(undefined);
 
 export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const [nodes, setNodes] = useState<NodeItem[]>([]);
-  const API_URL = 'http://localhost/api';
 
-  // ดึงข้อมูล Node จาก Database ทันทีที่เปิดเว็บ
   useEffect(() => {
     refreshNodes();
   }, []);
@@ -39,7 +38,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const refreshNodes = async () => {
     try {
       const res = await fetch(`${API_URL}/get_nodes.php`);
-      if (!res.ok) return;
+      if (!res.ok) throw new Error('Failed to fetch nodes');
       const data = await res.json();
       
       const formattedNodes = data.map((n: any) => ({
@@ -63,14 +62,13 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     try {
       const formData = new FormData();
       formData.append('name', node.name);
-      formData.append('ip', node.ip); // ต้องตรงกับ $_POST['ip'] ใน PHP
+      formData.append('ip', node.ip);
       formData.append('port', node.port);
-      formData.append('lat', node.lat.toString()); // ต้องตรงกับ $_POST['lat'] ใน PHP
-      formData.append('lng', node.lng.toString()); // ต้องตรงกับ $_POST['lng'] ใน PHP
+      formData.append('lat', node.lat.toString());
+      formData.append('lng', node.lng.toString());
 
-      const response = await fetch(`${API_URL}/add_node.php`, { method: 'POST', body: formData });
-      const result = await response.json(); // อ่านผลลัพธ์
-      console.log('Result from API:', result); // เปิด Console (F12) ดูว่า API ตอบว่าอะไร
+      const res = await fetch(`${API_URL}/add_node.php`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Add node failed');
       
       await refreshNodes(); 
     } catch (error) {
@@ -88,8 +86,9 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       formData.append('lat', node.lat.toString());
       formData.append('lng', node.lng.toString());
 
-      // ไฟล์ API ฝั่ง PHP อาจจะชื่อ edit_node.php หรือ update_node.php
-      await fetch(`${API_URL}/edit_node.php`, { method: 'POST', body: formData });
+      const res = await fetch(`${API_URL}/edit_node.php`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Update node failed');
+      
       await refreshNodes();
     } catch (error) {
       console.error('Error updating node:', error);
@@ -99,10 +98,12 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const deleteNode = async (id: string) => {
     try {
       const formData = new FormData();
-      formData.append('id', id); // ส่งค่า id ไปให้ PHP
+      formData.append('id', id);
 
-      await fetch(`${API_URL}/delete_node.php`, { method: 'POST', body: formData });
-      await refreshNodes(); // ดึงข้อมูลใหม่หลังจากลบเสร็จ
+      const res = await fetch(`${API_URL}/delete_node.php`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Delete node failed');
+      
+      await refreshNodes();
     } catch (error) {
       console.error('Error deleting node:', error);
     }
