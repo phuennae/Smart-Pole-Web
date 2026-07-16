@@ -33,7 +33,7 @@ export default function Login() {
           <img src="/logo.png" alt="FAR FORWARD Logo" className="w-[75%] h-[75%] object-contain" />
         </div>
         <h1 className="text-lg md:text-xl font-bold mb-1 text-center">Smart Pole Control Center System</h1>
-        <h2 className="text-base md:text-lg font-medium text-center">ระบบเสียงตามสายอัจฉริยะ</h2>
+        <h2 className="text-base md:text-lg font-medium text-center">ระบบเสียงไร้สายอัจฉริยะ</h2>
       </div>
 
       {/* ฝั่งขวา: ฟอร์มล็อกอิน */}

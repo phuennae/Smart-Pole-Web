@@ -2,9 +2,9 @@ import 'leaflet/dist/leaflet.css';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
-import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2 } from 'lucide-react';
+import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2, Music, BatteryCharging } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
-import { useUsers } from '../context/UserContext'; // ✅ ดึง useUsers เข้ามา
+import { useUsers } from '../context/UserContext';
 import { API_URL } from '../config';
 
 // --- AutoFit Component ---
@@ -25,13 +25,31 @@ function AutoFit() {
 // --- Types ---
 interface Schedule { id: number; days: string; time: string; file: string; volume: number; }
 
-const smartPoleIcon = new Icon({ iconUrl: '/pole.png', iconSize: [40, 80], iconAnchor: [20, 80], popupAnchor: [0, -80] });
+const smartPoleIcon = new Icon({ iconUrl: '/pole.png', iconSize: [40, 80], iconAnchor: [20, 80], popupAnchor: [0, -40] });
 
-// --- AudioPoleMarker Component ---
-function AudioPoleMarker({ node }: { node: NodeItem }) {
-  const { currentUser } = useUsers(); // ✅ เรียกใช้ข้อมูล user ที่ล็อกอินอยู่
+// --- AudioPoleMarker Component (แบบมินิมอล) ---
+function AudioPoleMarker({ node, onSelect }: { node: NodeItem; onSelect: () => void }) {
+  return (
+    <Marker 
+      position={[node.lat, node.lng]} 
+      icon={smartPoleIcon}
+      eventHandlers={{ click: onSelect }}
+    >
+      <Popup offset={[0, 0]}>
+        <div className="text-center font-sans p-1">
+          <p className="font-bold text-sm text-gray-950">{node.name}</p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
 
+// --- AudioSidebar Component (แถบควบคุมด้านขวา) ---
+function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }) {
+  const { currentUser } = useUsers();
+  
   const [online, setOnline] = useState(false);
+  const [batteryPct, setBatteryPct] = useState<number | null>(null);
   const [files, setFiles] = useState<string[]>([]);
   const [volume, setVolume] = useState(node.volume ?? 80); 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -52,7 +70,12 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
           const isOnline = statusData.online;
           setOnline(isOnline);
 
-          // เช็คชื่อเพลงที่กำลังเล่นจริงจาก ESP32
+          if (statusData.data && statusData.data.battery_pct !== undefined) {
+            setBatteryPct(statusData.data.battery_pct);
+          } else {
+            setBatteryPct(null);
+          }
+
           if (statusData.song && statusData.song !== "" && statusData.song.toLowerCase() !== "none" && statusData.song.toLowerCase() !== "/none") {
             setIsPlaying(true);
             setSelectedFile(statusData.song.replace(/^\//, '')); 
@@ -86,7 +109,7 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
     };
 
     fetchStatusAndFiles();
-    const intervalId = setInterval(fetchStatusAndFiles, 10000);
+    const intervalId = setInterval(fetchStatusAndFiles, 10000); // ดึงเฉพาะเสาที่เปิดอยู่
 
     return () => {
       isMounted = false;
@@ -103,9 +126,7 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
     
     try {
       let filePath = selectedFile;
-      if (filePath[0] !== '/') {
-        filePath = '/' + filePath;
-      }
+      if (filePath[0] !== '/') filePath = '/' + filePath;
       const url = `${API_URL}/process_broadcast.php?action=play_single&ip=${node.ip}&port=${node.port}&file=${encodeURIComponent(filePath)}`;
       await fetch(url, { method: 'GET' });
       setIsPlaying(true);
@@ -131,7 +152,6 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
 
   // 4. ฟังก์ชันอัปโหลดไฟล์
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // ✅ ดักไว้ก่อนเลยว่าถ้าเป็น USER ห้ามทำงานฟังก์ชันนี้
     if (currentUser?.role === 'USER') {
       alert("สิทธิ์ผู้ใช้งานทั่วไป ไม่สามารถอัปโหลดไฟล์เพลงได้ครับ");
       return;
@@ -152,17 +172,10 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
       formData.append('ip', node.ip);
       formData.append('port', node.port.toString());
       
-      const res = await fetch(`${API_URL}/upload_audio.php`, { 
-        method: 'POST', 
-        body: formData 
-      });
-
-      if (!res.ok) {
-        throw new Error(`Server Error: ${res.status}`);
-      }
+      const res = await fetch(`${API_URL}/upload_audio.php`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error(`Server Error: ${res.status}`);
 
       const data = await res.json();
-      
       if(data.status === 'success') {
           alert('อัปโหลดไฟล์สำเร็จ!');
           setFiles(prev => [...prev, file.name]);
@@ -191,115 +204,155 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
 
   return (
     <>
-      <Marker position={[node.lat, node.lng]} icon={smartPoleIcon}>
-        <Popup closeButton={false} className="custom-popup" minWidth={320} maxWidth={320}>
-          <div className="w-[320px] flex flex-col font-sans shadow-2xl rounded-[20px] overflow-hidden border-0">
+      <div className="w-[360px] shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-10 relative transition-all duration-300">
+        
+        {/* Header คลีนๆ สีขาว-เทา (ดีไซน์เดียวกับหน้า Home) */}
+        <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col relative shrink-0">
+          <button 
+            onClick={onClose} 
+            className="absolute top-6 right-5 text-gray-400 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 p-2 rounded-full transition-colors"
+          >
+            <X size={18} />
+          </button>
+
+          <div className="pr-10">
+            <h2 className="font-extrabold text-2xl text-gray-900 tracking-tight truncate">{node.name}</h2>
             
-            {/* Header */}
-            <div className="bg-[#48A0D8] px-4 py-3 flex justify-between items-center text-white transition-colors duration-300 gap-2">
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div className={`w-3.5 h-3.5 shrink-0 rounded-full ${online ? 'bg-[#76E136] animate-pulse shadow-[0_0_8px_rgba(118,225,54,0.8)]' : 'bg-red-500'}`} />
-                <span className="font-bold text-2xl tracking-wide truncate" title={node.name}>{node.name}</span>
-              </div>
-              <button onClick={() => setShowSchedule(true)} className="bg-white text-black text-[12px] px-3 py-1.5 rounded-full flex items-center gap-1.5 font-bold shadow-md hover:bg-gray-100 transition-colors whitespace-nowrap shrink-0">
-                <Clock size={14} fill="currentColor" /> ตั้งเวลา
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="px-5 py-4 bg-gradient-to-br from-[#faebe1] to-[#e8d5c8] relative">
-              
-              {isUploading && (
-                 <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center font-bold text-[#48A0D8] animate-pulse rounded-b-[20px]">
-                    กำลังอัปโหลดไฟล์...
-                 </div>
-              )}
-              
-              <div className="flex items-center gap-3 mb-5">
-                <Volume2 size={26} className="text-black" strokeWidth={2.5} shrink-0 />
-                <input 
-                  type="range" 
-                  value={volume} 
-                  onChange={(e) => setVolume(Number(e.target.value))} 
-                  onMouseUp={() => handleSetVolume(volume)}
-                  onTouchEnd={() => handleSetVolume(volume)}
-                  className="w-full h-2 rounded-lg cursor-pointer custom-slider" 
-                  style={{ background: `linear-gradient(to right, #48A0D8 ${volume}%, black ${volume}%)` }} 
-                  disabled={!online}
-                />
-                <span className="text-xs font-bold text-black w-8 text-right shrink-0">{volume}%</span>
+            <div className="flex items-center gap-3 mt-3">
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${online ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                <div className={`w-2 h-2 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                {online ? 'Online' : 'Offline'}
               </div>
 
-              <div className="flex justify-between items-center gap-4">
-                <div className="flex gap-2 shrink-0">
-                  <button 
-                    onClick={handlePlay} 
-                    className={`w-12 h-[34px] flex items-center justify-center rounded-xl shadow-md ${online && selectedFile ? 'bg-[#519455] hover:scale-105' : 'bg-gray-400 opacity-50 cursor-not-allowed'}`} 
-                    disabled={!online || !selectedFile}
-                  >
-                    <Play size={16} fill="white" className="text-white" />
-                  </button>
-                  <button 
-                    onClick={handleStop} 
-                    className={`w-12 h-[34px] flex items-center justify-center rounded-xl shadow-md ${online ? 'bg-[#A63535] hover:scale-105' : 'bg-gray-400 opacity-50 cursor-not-allowed'}`} 
-                    disabled={!online}
-                  >
-                    <Pause size={16} fill="white" className="text-white" />
-                  </button>
+              {online && batteryPct !== null && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#F0F7FF] text-[#48A0D8] border border-[#D0E6FB]">
+                  <BatteryCharging size={14} /> {batteryPct}%
                 </div>
-                
-                {!online ? (
-                  <div className="flex-1 flex justify-center items-center h-full min-h-[50px]">
-                    <span className="font-serif text-[18px] font-bold text-black">Node Offline</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Body พื้นหลังสีเทาอ่อน สไตล์ Dashboard */}
+        <div className="flex-1 px-6 py-6 bg-[#F8FAFC] overflow-y-auto relative">
+          
+          {isUploading && (
+             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center font-bold text-[#48A0D8] flex-col gap-3 animate-pulse">
+                <CloudUpload size={40} />
+                กำลังอัปโหลดไฟล์ลงเสา...
+             </div>
+          )}
+
+          {/* ✅ ส่วนที่แสดงสถานะกำลังเล่นเพลงและชื่อไฟล์ */}
+          <div className="flex justify-between items-end mb-4 gap-2">
+            <p className="text-[11px] font-extrabold text-gray-400 tracking-widest uppercase shrink-0">
+              Audio Control
+            </p>
+            {online && (
+              <span 
+                title={isPlaying && selectedFile ? `กำลังเล่น : ${selectedFile}` : 'หยุดเล่น'}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-full border truncate max-w-[180px] ${isPlaying && selectedFile ? "bg-green-50 text-green-600 border-green-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}
+              >
+                {isPlaying && selectedFile ? `▶ กำลังเล่น : ${selectedFile}` : '■ หยุดเล่น'}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-4">
+            
+            {/* Card: เครื่องเล่นเพลง */}
+            <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-5">
+              {!online ? (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Music size={24} />
                   </div>
-                ) : (
-                  // ✅ ปรับโครงสร้างส่วนแสดงไฟล์ให้รองรับการซ่อนปุ่มอัปโหลด
-                  <div className="flex flex-col gap-2 flex-1 min-w-0">
-                    
-                    {/* ส่วนแสดงรายชื่อไฟล์เพลง */}
+                  <p className="text-sm font-bold text-red-600">อุปกรณ์ขาดการเชื่อมต่อ</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {/* Select File */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-gray-600">เลือกไฟล์เพลง</label>
                     {files.length > 0 ? (
                       <div className="relative">
                         <select 
                           value={selectedFile} 
                           onChange={(e) => setSelectedFile(e.target.value)} 
-                          className="w-full appearance-none text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm truncate"
+                          className="w-full appearance-none text-sm font-medium bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 ring-[#48A0D8]/50 truncate"
                         >
-                          <option value="">เลือกไฟล์...</option>
-                          {files.map(f => (
-                            <option key={f} value={f}>{f}</option>
-                          ))}
+                          <option value="">-- เลือกไฟล์ --</option>
+                          {files.map(f => <option key={f} value={f}>{f}</option>)}
                         </select>
-                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500" />
                       </div>
                     ) : (
-                      <div className="flex justify-center items-center h-[34px]">
-                        <span className="text-[13px] font-bold text-gray-500 bg-white/50 px-4 py-1 rounded-full shadow-sm">ไม่พบไฟล์เพลง</span>
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center text-sm font-bold text-gray-400">
+                        ไม่พบไฟล์เพลงในระบบ
                       </div>
                     )}
-
-                    {/* ✅ ส่วนอัปโหลดไฟล์: ซ่อนเมื่อ role เป็น USER */}
-                    {currentUser?.role !== 'USER' && (
-                      <label className="w-full flex items-center justify-between text-[12px] font-medium bg-white rounded-full px-4 py-[6px] shadow-sm hover:bg-gray-50 transition-colors cursor-pointer">
-                        <span>อัปโหลด</span><CloudUpload size={16} />
-                        <input type="file" accept=".mp3" className="hidden" onChange={handleUpload} />
-                      </label>
-                    )}
                   </div>
-                )}
-              </div>
 
-              {online && (
-                <div className="mt-4 pt-3 border-t border-gray-300/40 text-[12px] font-extrabold flex justify-between">
-                  <span className="shrink-0">สถานะ</span>
-                  <span className={`truncate text-right pl-2 ${isPlaying && selectedFile ? "text-[#519455]" : "text-[#A63535]"}`}>
-                    {isPlaying && selectedFile ? `กำลังเล่น : ${selectedFile}` : 'หยุดเล่น'}
-                  </span>
+                  {/* Play / Pause Buttons */}
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handlePlay} 
+                      className={`flex-1 py-2.5 flex items-center justify-center gap-2 rounded-xl font-bold transition-all shadow-sm ${online && selectedFile ? 'bg-[#519455] text-white hover:bg-green-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`} 
+                      disabled={!online || !selectedFile}
+                    >
+                      <Play size={18} fill="currentColor" /> เล่น
+                    </button>
+                    <button 
+                      onClick={handleStop} 
+                      className={`flex-1 py-2.5 flex items-center justify-center gap-2 rounded-xl font-bold transition-all shadow-sm ${online ? 'bg-[#A63535] text-white hover:bg-red-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`} 
+                      disabled={!online}
+                    >
+                      <Pause size={18} fill="currentColor" /> หยุด
+                    </button>
+                  </div>
+
+                  {/* Upload Button */}
+                  {currentUser?.role !== 'USER' && (
+                    <label className="w-full mt-1 flex items-center justify-center gap-2 text-sm font-bold bg-[#F0F7FF] text-[#48A0D8] border border-[#D0E6FB] rounded-xl px-4 py-2.5 hover:bg-[#E5F3FF] transition-colors cursor-pointer shadow-sm">
+                      <CloudUpload size={18} />
+                      <span>อัปโหลดไฟล์เพลงใหม่ (.mp3)</span>
+                      <input type="file" accept=".mp3" className="hidden" onChange={handleUpload} />
+                    </label>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* Card: ระดับเสียง */}
+            <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-5">
+               <div className="flex justify-between items-center mb-3">
+                 <label className="text-xs font-bold text-gray-600 flex items-center gap-1.5"><Volume2 size={16}/> ระดับเสียง</label>
+                 <span className="text-sm font-extrabold text-[#48A0D8]">{volume}%</span>
+               </div>
+               <input 
+                  type="range" 
+                  value={volume} 
+                  onChange={(e) => setVolume(Number(e.target.value))} 
+                  onMouseUp={() => handleSetVolume(volume)}
+                  onTouchEnd={() => handleSetVolume(volume)}
+                  className="w-full h-2 rounded-lg cursor-pointer custom-slider opacity-90 hover:opacity-100 disabled:opacity-50" 
+                  style={{ background: `linear-gradient(to right, #48A0D8 ${volume}%, #E2E8F0 ${volume}%)` }} 
+                  disabled={!online}
+                />
+            </div>
+            
+            {/* Button: ตั้งเวลา */}
+            <button 
+              onClick={() => setShowSchedule(true)} 
+              className="mt-2 w-full bg-gray-800 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold shadow-md hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!online}
+            >
+              <Calendar size={18} /> จัดการตารางเปิด-ปิดไฟล์เสียง
+            </button>
+
           </div>
-        </Popup>
-      </Marker>
+        </div>
+      </div>
 
       {showSchedule && (
         <ScheduleModal 
@@ -315,23 +368,40 @@ function AudioPoleMarker({ node }: { node: NodeItem }) {
 // --- Main Page Component ---
 export default function AudioControl() {
   const { nodes } = useNodes();
+  const [selectedNode, setSelectedNode] = useState<NodeItem | null>(null);
 
   return (
-    <main className="flex-1 h-screen relative bg-gray-100 font-sans">
-      <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full z-0">
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
-        
-        <AutoFit />
+    <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden">
+      
+      {/* ฝั่งซ้าย: แผนที่ระบบ */}
+      <div className="flex-1 h-full relative z-0">
+        <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full">
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
+          <AutoFit />
+          
+          {nodes.map((node) => (
+            <AudioPoleMarker 
+              key={node.id} 
+              node={node} 
+              onSelect={() => setSelectedNode(node)} 
+            />
+          ))}
+        </MapContainer>
+      </div>
 
-        {nodes.map((node) => (
-          <AudioPoleMarker key={node.id} node={node} />
-        ))}
-      </MapContainer>
+      {/* ฝั่งขวา: Sidebar ควบคุมเสียง */}
+      {selectedNode && (
+        <AudioSidebar 
+          node={selectedNode} 
+          onClose={() => setSelectedNode(null)} 
+        />
+      )}
+
     </main>
   );
 }
 
-// --- Schedule Modal ---
+// --- Schedule Modal (คงเดิม) ---
 function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string[], onClose: () => void }) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -406,52 +476,52 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
-      <div className="bg-[#EAEAEA] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden border border-gray-300">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+      <div className="bg-[#F8FAFC] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden border border-gray-200">
         
-        <div className="bg-[#48A0D8] p-5 flex justify-between items-center text-white">
-          <h2 className="text-2xl font-bold flex items-center gap-3"><Calendar size={24} /> ตารางเวลา : {node.name}</h2>
-          <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={24} /></button>
+        <div className="bg-white border-b border-gray-100 p-5 flex justify-between items-center text-gray-900">
+          <h2 className="text-xl font-extrabold flex items-center gap-3"><Calendar size={22} className="text-[#48A0D8]" /> ตารางเวลา : {node.name}</h2>
+          <button onClick={onClose} className="hover:bg-gray-100 text-gray-400 hover:text-gray-800 p-2 rounded-full transition-colors"><X size={20} /></button>
         </div>
         
         <div className="p-8">
-          <div className="bg-gray-200 p-6 rounded-2xl grid grid-cols-4 gap-4 items-end mb-8 relative">
+          <div className="bg-white border border-gray-200 p-6 rounded-2xl grid grid-cols-4 gap-4 items-end mb-8 relative shadow-sm">
              {isSaving && (
-               <div className="absolute inset-0 bg-white/50 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
-                 <div className="font-bold text-gray-700 animate-pulse flex items-center gap-2">
+               <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
+                 <div className="font-bold text-[#48A0D8] animate-pulse flex items-center gap-2">
                     <Clock size={18} className="animate-spin" /> กำลังส่งข้อมูลไปยังเสา...
                  </div>
                </div>
              )}
              
              <div>
-               <label className="block text-xs font-bold mb-1.5 ml-1">Days / วัน</label>
-               <select onChange={(e) => setNewDays(e.target.value)} className="w-full p-2.5 rounded-xl text-sm bg-white border-0 shadow-sm outline-none">
+               <label className="block text-xs font-bold mb-2 ml-1 text-gray-600">Days / วัน</label>
+               <select onChange={(e) => setNewDays(e.target.value)} className="w-full p-2.5 rounded-xl text-sm font-medium bg-gray-50 border border-gray-200 outline-none focus:ring-2 ring-[#48A0D8]/50">
                   {['ทุกวัน', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์', 'วันอาทิตย์', 'วันทำงาน(จ-ศ)'].map(d=><option key={d}>{d}</option>)}
                </select>
              </div>
              <div>
-               <label className="block text-xs font-bold mb-1.5 ml-1">Time / เวลา</label>
-               <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-full p-2.5 rounded-xl text-sm border-0 shadow-sm outline-none" />
+               <label className="block text-xs font-bold mb-2 ml-1 text-gray-600">Time / เวลา</label>
+               <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-full p-2.5 rounded-xl text-sm font-medium bg-gray-50 border border-gray-200 outline-none focus:ring-2 ring-[#48A0D8]/50" />
              </div>
              <div>
-               <label className="block text-xs font-bold mb-1.5 ml-1">File / ไฟล์เพลง</label>
-               <select onChange={(e) => setNewFile(e.target.value)} className="w-full p-2.5 rounded-xl text-sm border-0 shadow-sm outline-none">
+               <label className="block text-xs font-bold mb-2 ml-1 text-gray-600">File / ไฟล์เพลง</label>
+               <select onChange={(e) => setNewFile(e.target.value)} className="w-full p-2.5 rounded-xl text-sm font-medium bg-gray-50 border border-gray-200 outline-none focus:ring-2 ring-[#48A0D8]/50">
                   {files.length > 0 ? files.map(f => <option key={f} value={f}>{f}</option>) : <option>ไม่มีไฟล์เพลง</option>}
                </select>
              </div>
              <div>
-               <label className="block text-xs font-bold mb-1.5 ml-1">Volume / ระดับเสียง</label>
-               <input type="number" onChange={(e) => setNewVolume(e.target.value)} placeholder="80" defaultValue="80" className="w-full p-2.5 rounded-xl text-sm border-0 shadow-sm outline-none" />
+               <label className="block text-xs font-bold mb-2 ml-1 text-gray-600">Volume / ระดับเสียง</label>
+               <input type="number" onChange={(e) => setNewVolume(e.target.value)} placeholder="80" defaultValue="80" className="w-full p-2.5 rounded-xl text-sm font-medium bg-gray-50 border border-gray-200 outline-none focus:ring-2 ring-[#48A0D8]/50" />
              </div>
           </div>
           
-          <button onClick={handleSave} disabled={isSaving || !newTime} className="bg-[#519455] text-white px-10 py-2 rounded-full font-bold mx-auto block hover:bg-green-700 disabled:bg-gray-400 transition-all shadow-md">
-            Save / บันทึก
+          <button onClick={handleSave} disabled={isSaving || !newTime} className="bg-[#48A0D8] text-white px-10 py-3 rounded-xl font-bold mx-auto block hover:bg-blue-500 disabled:bg-gray-300 transition-all shadow-md">
+            + เพิ่มตารางเวลา
           </button>
 
           <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-h-[150px]">
-             <div className="grid grid-cols-12 p-4 font-bold text-sm bg-gray-50 border-b border-gray-200">
+             <div className="grid grid-cols-12 p-4 font-bold text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
                <div className="col-span-3">Days / วัน</div>
                <div className="col-span-3">Time / เวลา</div>
                <div className="col-span-3">File / ไฟล์เพลง</div>
@@ -460,18 +530,18 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
              </div>
              
              {isLoading ? (
-                <div className="p-8 text-center text-gray-500 font-bold animate-pulse">กำลังโหลดตารางเวลา...</div>
+                <div className="p-8 text-center text-[#48A0D8] font-bold animate-pulse">กำลังโหลดตารางเวลา...</div>
              ) : schedules.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 font-bold">ยังไม่มีตารางเวลาสำหรับเสานี้</div>
              ) : (
                 schedules.map(s => (
-                 <div key={s.id} className="grid grid-cols-12 p-4 border-b border-gray-100 items-center text-sm hover:bg-gray-50">
-                    <div className="col-span-3 font-bold">{s.days}</div>
-                    <div className="col-span-3">{s.time}</div>
-                    <div className="col-span-3">{s.file}</div>
-                    <div className="col-span-2">{s.volume}%</div>
+                 <div key={s.id} className="grid grid-cols-12 p-4 border-b border-gray-100 items-center text-sm font-medium hover:bg-gray-50 transition-colors">
+                    <div className="col-span-3 text-gray-900 font-bold">{s.days}</div>
+                    <div className="col-span-3 text-gray-600">{s.time}</div>
+                    <div className="col-span-3 text-gray-600 truncate pr-2">{s.file}</div>
+                    <div className="col-span-2 text-[#48A0D8] font-bold">{s.volume}%</div>
                     <div className="col-span-1 text-center">
-                       <button onClick={() => handleDelete(s.id)} disabled={isSaving} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                       <button onClick={() => handleDelete(s.id)} disabled={isSaving} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
                           <Trash2 size={18}/>
                        </button>
                     </div>

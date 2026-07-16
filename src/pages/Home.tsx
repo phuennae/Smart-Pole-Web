@@ -2,14 +2,15 @@ import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import { Icon } from 'leaflet';
-import { Share } from 'lucide-react';
+// ✅ Import ไอคอนเพิ่มเติมสำหรับตกแต่งการ์ดข้อมูล
+import { Share, X, Zap, Activity, Gauge, BatteryCharging } from 'lucide-react'; 
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
 const TB_URL = "http://theoneiot.i234.me:9090";
 
-// --- AutoFit Component (จัดกล้องให้เห็นหมุดทั้งหมด) ---
+// --- AutoFit Component ---
 function AutoFit() {
   const map = useMap();
   const { nodes } = useNodes();
@@ -31,10 +32,27 @@ const smartPoleIcon = new Icon({
   popupAnchor: [0, -80]
 });
 
-// --- PoleMarker Component (รับหน้าที่เช็คสถานะ Real-time & ดึงค่าผสม Hybrid) ---
-function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
-  const navigate = useNavigate(); 
-  
+// --- PoleMarker Component ---
+function PoleMarker({ node, onSelect }: { node: NodeItem; onSelect: () => void }) {
+  return (
+    <Marker 
+      position={[node.lat, node.lng]} 
+      icon={smartPoleIcon}
+      eventHandlers={{ click: () => onSelect() }}
+    >
+      <Popup offset={[0, -40]}>
+        <div className="text-center font-sans p-1">
+          <p className="font-bold text-sm text-gray-950">{node.name}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">คลิกเพื่อดูข้อมูลพลังงานฝั่งขวา</p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+// --- NodeSidebar Component (รีดีไซน์ใหม่) ---
+function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; onClose: () => void }) {
+  const navigate = useNavigate();
   const [statusData, setStatusData] = useState<any>({
     online: false,
     data: { voltage: '-', current: '-', power: '-', energy: '-', battery_pct: null }
@@ -45,15 +63,13 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
 
     const fetchRealTimeStatus = async () => {
       try {
-        // 1. ดึงข้อมูล V, A, W และ tb_device_id จากหลังบ้าน API หลักของเรา
         const res = await fetch(`${API_URL}/get_node_status.php?id=${node.id}`);
         const result = await res.json();
         
         if (isMounted && result.status === 'success') {
           let energyVal = result.data?.energy || '-';
-
-          // 2. ถ้าได้รหัส tb_device_id และมี Token ให้ไปดึงค่า Wh ล่าสุดจาก ThingsBoard ทันที
           const tbDeviceId = result.tb_device_id;
+
           if (tbDeviceId && token && result.online) {
             try {
               const rTb = await fetch(
@@ -63,7 +79,7 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
               const dTb = await rTb.json();
               const eRaw = dTb.energy?.[0]?.value;
               if (eRaw !== undefined) {
-                energyVal = parseFloat(eRaw).toString(); // อัปเดตตัวเลขจริงจาก ThingsBoard แทนเลข 0
+                energyVal = parseFloat(eRaw).toString();
               }
             } catch (tbErr) {
               console.error(`Failed to fetch Energy from ThingsBoard for Node ${node.id}:`, tbErr);
@@ -74,7 +90,7 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
             online: result.online,
             data: {
               ...(result.data || { voltage: '-', current: '-', power: '-', energy: '-', battery_pct: null }),
-              energy: energyVal // สลับเอาค่า Wh จริงมาเสียบแทนค่าเดิม
+              energy: energyVal
             }
           });
         }
@@ -83,8 +99,8 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
       }
     };
 
-    fetchRealTimeStatus(); 
-    const intervalId = setInterval(fetchRealTimeStatus, 10000); // อัปเดตค่าทุกๆ 10 วินาที
+    fetchRealTimeStatus();
+    const intervalId = setInterval(fetchRealTimeStatus, 10000);
 
     return () => {
       isMounted = false;
@@ -94,80 +110,98 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
 
   const { online, data } = statusData;
 
+  // คอมโพเนนต์ย่อยสำหรับแสดงการ์ดข้อมูลแต่ละตัวให้โค้ดดูสะอาด
+  const DataCard = ({ title, value, unit, icon, colorClass, bgClass }: any) => (
+    <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${bgClass} ${colorClass}`}>
+        {icon}
+      </div>
+      <div className="flex-1">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{title}</p>
+        <div className="flex items-baseline gap-1.5 mt-0.5">
+          <span className="text-2xl font-extrabold text-gray-800">{online ? value : '-'}</span>
+          <span className="text-sm font-bold text-gray-400">{unit}</span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <Marker position={[node.lat, node.lng]} icon={smartPoleIcon}>
-      <Popup closeButton={false} className="custom-popup" minWidth={280} maxWidth={280}>
-        <div className="w-[280px] flex flex-col font-sans shadow-2xl rounded-[20px] overflow-hidden border-0">
+    <div className="w-[360px] shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-10 relative transition-all duration-300">
+      
+      {/* Header คลีนๆ แบบสีขาว-เทา */}
+      <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col relative shrink-0">
+        <button 
+          onClick={onClose} 
+          className="absolute top-6 right-5 text-gray-400 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 p-2 rounded-full transition-colors"
+        >
+          <X size={18} />
+        </button>
+
+        <div className="pr-10">
+          <h2 className="font-extrabold text-2xl text-gray-900 tracking-tight truncate">{node.name}</h2>
           
-          {/* Header สีฟ้า */}
-          <div className="bg-[#48A0D8] px-4 py-3 flex justify-between items-start text-white">
-            <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
-              <div className={`w-3.5 h-3.5 shrink-0 rounded-full mt-0.5 ${online ? 'bg-[#76E136] animate-pulse shadow-[0_0_8px_rgba(118,225,54,0.8)]' : 'bg-red-500'}`} />
-              <span className="font-bold text-[20px] leading-tight tracking-wide whitespace-normal break-words" title={node.name}>
-                {node.name}
-              </span>
+          <div className="flex items-center gap-3 mt-3">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${online ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+              <div className={`w-2 h-2 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              {online ? 'Online' : 'Offline'}
             </div>
-            
-            {online && (
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <button 
-                  onClick={() => navigate(`/energy-monitor/${node.id}`)} 
-                  className="bg-white text-black text-[12px] px-3 py-1 rounded-full flex items-center gap-1.5 font-bold shadow-sm hover:bg-gray-100 transition-colors"
-                >
-                  กราฟ <Share size={14} strokeWidth={2.5} />
-                </button>
-                
-                {data?.battery_pct !== undefined && data.battery_pct !== null && (
-                  <div className="text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 bg-white text-[#48A0D8]">
-                    ⚡ {data.battery_pct}%
-                  </div>
-                )}
+
+            {online && data?.battery_pct !== undefined && data.battery_pct !== null && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#F0F7FF] text-[#48A0D8] border border-[#D0E6FB]">
+                <BatteryCharging size={14} /> {data.battery_pct}%
               </div>
             )}
           </div>
-
-          {/* Body พื้นหลัง Gradient */}
-          <div className="px-5 py-6 bg-gradient-to-br from-[#faebe1] to-[#e8d5c8]">
-            <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-              
-              <div className="flex justify-between items-baseline">
-                <span className="font-extrabold text-gray-900 text-xl tracking-wide">V</span>
-                <div>
-                  <span className="text-[#3271A5] font-extrabold text-xl">{online ? data.voltage : '-'}</span>
-                  <span className="text-gray-900 font-extrabold text-xs ml-1">v</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-baseline">
-                <span className="font-extrabold text-gray-900 text-xl tracking-wide">A</span>
-                <div>
-                  <span className="text-[#3271A5] font-extrabold text-xl">{online ? data.current : '-'}</span>
-                  <span className="text-gray-900 font-extrabold text-xs ml-1">A</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-baseline">
-                <span className="font-extrabold text-gray-900 text-xl tracking-wide">W</span>
-                <div>
-                  <span className="text-[#3271A5] font-extrabold text-xl">{online ? data.power : '-'}</span>
-                  <span className="text-gray-900 font-extrabold text-xs ml-1">w</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-baseline">
-                <span className="font-extrabold text-gray-900 text-xl tracking-wide">Wh</span>
-                <div>
-                  <span className="text-[#3271A5] font-extrabold text-xl">{online ? data.energy : '-'}</span>
-                  <span className="text-gray-900 font-extrabold text-xs ml-1">wh</span>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
         </div>
-      </Popup>
-    </Marker>
+
+        {online && (
+          <button 
+            onClick={() => navigate(`/energy-monitor/${node.id}`)} 
+            className="mt-5 w-full bg-[#48A0D8] text-white py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold shadow-md hover:bg-blue-500 transition-colors"
+          >
+            <Share size={16} strokeWidth={2.5} /> ดูสถิติกราฟแบบละเอียด
+          </button>
+        )}
+      </div>
+
+      {/* Body พื้นหลังสีเทาอ่อน สไตล์ Dashboard */}
+      <div className="flex-1 px-6 py-6 bg-[#F8FAFC] overflow-y-auto">
+        <p className="text-[11px] font-extrabold text-gray-400 mb-4 tracking-widest uppercase">
+          Real-time Monitor
+        </p>
+        
+        <div className="flex flex-col gap-3.5">
+          <DataCard 
+            title="Voltage" value={data.voltage} unit="V" 
+            icon={<Zap size={22} />} colorClass="text-yellow-500" bgClass="bg-yellow-50"
+          />
+          <DataCard 
+            title="Current" value={data.current} unit="A" 
+            icon={<Activity size={22} />} colorClass="text-blue-500" bgClass="bg-blue-50"
+          />
+          <DataCard 
+            title="Power" value={data.power} unit="W" 
+            icon={<Gauge size={22} />} colorClass="text-purple-500" bgClass="bg-purple-50"
+          />
+          <DataCard 
+            title="Energy" value={data.energy} unit="Wh" 
+            icon={<BatteryCharging size={22} />} colorClass="text-green-500" bgClass="bg-green-50"
+          />
+        </div>
+
+        {!online && (
+          <div className="mt-6 text-center p-4 bg-white rounded-2xl border border-red-100 shadow-sm">
+            <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
+              <X size={24} />
+            </div>
+            <p className="text-sm font-bold text-red-600">อุปกรณ์ขาดการเชื่อมต่อ</p>
+            <p className="text-xs text-gray-500 mt-1">ไม่สามารถดึงข้อมูลพลังงานได้ในขณะนี้</p>
+          </div>
+        )}
+      </div>
+
+    </div>
   );
 }
 
@@ -175,18 +209,15 @@ function PoleMarker({ node, token }: { node: NodeItem; token: string }) {
 export default function Home() {
   const { nodes } = useNodes();
   const [token, setToken] = useState<string>('');
+  const [selectedNode, setSelectedNode] = useState<NodeItem | null>(null);
 
-  // ล็อกอินส่วนกลางของหน้า Home เพื่อนำ Token ส่งกระจายให้หมุดแต่ละต้นใช้งาน
   useEffect(() => {
     const login = async () => {
       try {
         const r = await fetch(TB_URL + "/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: "tenant@thingsboard.org",
-            password: "tenant"
-          })
+          body: JSON.stringify({ username: "tenant@thingsboard.org", password: "tenant" })
         });
         const data = await r.json();
         setToken(data.token);
@@ -198,15 +229,23 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-gray-100">
-      <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full z-0">
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
-        <AutoFit />
-        
-        {nodes.map((node) => (
-           <PoleMarker key={node.id} node={node} token={token} />
-        ))}
-      </MapContainer>
+    <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden">
+      
+      <div className="flex-1 h-full relative z-0">
+        <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full">
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
+          <AutoFit />
+          
+          {nodes.map((node) => (
+             <PoleMarker key={node.id} node={node} onSelect={() => setSelectedNode(node)} />
+          ))}
+        </MapContainer>
+      </div>
+
+      {selectedNode && (
+        <NodeSidebar node={selectedNode} token={token} onClose={() => setSelectedNode(null)} />
+      )}
+
     </main>
   );
 }
