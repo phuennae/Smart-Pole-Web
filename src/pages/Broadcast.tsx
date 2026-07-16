@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Mic, Square, AlertTriangle, CheckSquare, Square as SquareOutline, Radio } from 'lucide-react';
-import { useNodes } from '../context/NodeContext';
+import { Mic, Square, AlertTriangle, CheckSquare, Square as SquareOutline, Radio, ChevronUp, ChevronDown, Focus } from 'lucide-react';
+import { useNodes, type NodeItem } from '../context/NodeContext';
 import 'leaflet/dist/leaflet.css';
 import { API_URL } from '../config';
 
@@ -21,21 +21,47 @@ function AutoFit() {
   return null;
 }
 
+// ✅ อัปเกรดปุ่ม Recenter: สีและขนาดกลับมาเหมือนหน้าอื่นๆ แต่ยังคงดิ้นหลบแผงควบคุมได้
+function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
+  const map = useMap();
+
+  const handleRecenter = () => {
+    if (nodes && nodes.length > 0) {
+      const bounds = nodes.map(node => [node.lat, node.lng] as [number, number]);
+      map.fitBounds(bounds, { padding: [80, 80] });
+    }
+  };
+
+  return (
+    <div className="leaflet-bottom leaflet-right">
+      {/* ใช้คลาส Tailwind ประกาศิต (!) เพื่อดันหลบ UI แต่สไตล์ปุ่มเหมือนเดิมเป๊ะ */}
+      <div className="leaflet-control leaflet-bar shadow-xl !mb-[110px] md:!mb-[35px] !mr-[10px]">
+        <button
+          onClick={handleRecenter}
+          className="bg-white hover:bg-gray-100 text-gray-800 rounded flex items-center justify-center transition-colors"
+          style={{ width: '34px', height: '34px', border: 'none', outline: 'none' }}
+          title="ซูมกลับมายังเสาทั้งหมด"
+        >
+          <Focus size={20} className="text-gray-900" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Broadcast() {
   const { nodes } = useNodes();
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   
-  // States สำหรับเก็บสถานะ Online/Offline ของแต่ละเสา (id -> boolean)
   const [onlineStatuses, setOnlineStatuses] = useState<Record<string, boolean>>({});
-  
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false); 
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [isMobileExpanded, setIsMobileExpanded] = useState(false);
 
-  // คำนวณจำนวนเสาที่ Online ทั้งหมด
   const onlineCount = Object.values(onlineStatuses).filter(Boolean).length;
 
-  // --- ดึงสถานะ Real-time ของทุกเสา ---
   useEffect(() => {
     let isMounted = true;
 
@@ -54,9 +80,7 @@ export default function Broadcast() {
         }
       }
 
-      if (isMounted) {
-        setOnlineStatuses(newStatuses);
-      }
+      if (isMounted) setOnlineStatuses(newStatuses);
     };
 
     fetchAllStatuses();
@@ -68,7 +92,6 @@ export default function Broadcast() {
     };
   }, [nodes]);
 
-  // --- ถอดเสาที่ Offline ออกจากรายการที่เลือก (ออโต้) ---
   useEffect(() => {
     setSelectedNodes(prev => {
       const next = new Set(prev);
@@ -83,7 +106,6 @@ export default function Broadcast() {
     });
   }, [onlineStatuses]);
 
-  // --- ฟังก์ชันเลือกเสาทีละต้น ---
   const toggleNode = (id: string) => {
     if (onlineStatuses[id] !== true) {
       alert("⚠️ เสานี้ Offline อยู่ ไม่สามารถเลือกได้ครับ");
@@ -94,9 +116,12 @@ export default function Broadcast() {
     if (newSelected.has(id)) newSelected.delete(id);
     else newSelected.add(id);
     setSelectedNodes(newSelected);
+
+    if (!isMobileExpanded && window.innerWidth < 768) {
+      setIsMobileExpanded(true);
+    }
   };
 
-  // --- ฟังก์ชันเลือกทั้งหมด (เฉพาะที่ Online) ---
   const handleSelectAll = () => {
     const onlineNodeIds = nodes.filter(n => onlineStatuses[n.id] === true).map(n => n.id);
     if (onlineNodeIds.length === 0) {
@@ -106,7 +131,6 @@ export default function Broadcast() {
     setSelectedNodes(new Set(onlineNodeIds));
   };
 
-  // --- ฟังก์ชันประกาศเสียงสด ---
   const handleStartBroadcast = async () => {
     if (selectedNodes.size === 0) {
       alert("กรุณาเลือกเสาไฟบนแผนที่ก่อนครับ");
@@ -142,7 +166,6 @@ export default function Broadcast() {
     }
   };
 
-  // --- ฟังก์ชัน Alarm ฉุกเฉิน ---
   const handlePlayAlarm = async () => {
     if (selectedNodes.size === 0) {
       alert("กรุณาเลือกเสาไฟที่ต้องการแจ้งเตือนก่อนครับ");
@@ -207,25 +230,25 @@ export default function Broadcast() {
   };
 
   return (
-    <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden font-sans">
+    <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex flex-col md:flex-row overflow-hidden font-sans">
       
       {/* ฝั่งซ้าย: แผนที่ระบบ */}
-      <div className="flex-1 h-full relative z-0">
-        <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full">
+      <div className="flex-1 w-full relative z-0">
+        <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full" zoomControl={false}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
+          
           <AutoFit />
+          <RecenterControl nodes={nodes} />
+
           {nodes.map((node) => {
             const isSelected = selectedNodes.has(node.id);
             const isOnline = onlineStatuses[node.id] === true;
             
-            // เปลี่ยนสีจุดสถานะ
             const statusDot = isOnline ? 'bg-[#76E136]' : 'bg-red-500';
-            // ทำให้ภาพเสาไฟเทาลงถ้าออฟไลน์ และมีวงแสงถ้าถูกเลือก
             const filterStyle = isOnline 
               ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
               : 'grayscale(100%) opacity(60%)';
 
-            // ✅ ปรับขนาดไอคอนให้กว้าง 40px สูง 80px เท่ากับหน้าอื่น
             const icon = L.divIcon({
               className: 'custom-pole-icon',
               html: `
@@ -237,8 +260,8 @@ export default function Broadcast() {
                   </div>
                 </div>
               `,
-              iconSize: [100, 110], // ขยายกรอบไอคอนเผื่อชื่อยาว
-              iconAnchor: [50, 100] // ปรับจุดยึดให้ตรงกับโคนเสา
+              iconSize: [100, 110],
+              iconAnchor: [50, 100] 
             });
 
             return (
@@ -253,59 +276,72 @@ export default function Broadcast() {
         </MapContainer>
       </div>
 
-      {/* ฝั่งขวา: Sidebar แผงควบคุม Broadcast */}
-      <div className="w-[360px] shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-10 relative transition-all duration-300">
+      {/* แผงควบคุม Broadcast */}
+      <div className={`
+        absolute bottom-4 right-4 z-[1000] w-[calc(100%-32px)] sm:w-[340px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-300 overflow-hidden
+        md:static md:w-[360px] md:h-full md:rounded-none md:border-l md:border-t-0 md:shadow-[-10px_0_30px_rgba(0,0,0,0.05)] md:flex-shrink-0
+      `}>
         
-        {/* Header คลีนๆ สีขาว-เทา */}
-        <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col shrink-0">
-          <h2 className="font-extrabold text-2xl text-gray-900 tracking-tight flex items-center gap-2">
-            <Radio size={24} className="text-[#48A0D8]" /> Broadcast
-          </h2>
-          <p className="text-xs text-gray-500 mt-1.5 font-medium tracking-wide">ระบบประกาศเสียงตามสายและแจ้งเตือนภัย</p>
+        {/* Header */}
+        <div 
+          onClick={() => { if (window.innerWidth < 768) setIsMobileExpanded(!isMobileExpanded); }}
+          className="bg-white px-5 py-4 md:px-6 md:py-6 border-b border-gray-100 flex items-center justify-between cursor-pointer md:cursor-default shrink-0"
+        >
+          <div className="flex flex-col">
+            <h2 className="font-extrabold text-xl md:text-2xl text-gray-900 tracking-tight flex items-center gap-2">
+              <Radio size={24} className="text-[#48A0D8]" /> Broadcast
+            </h2>
+            <p className="text-[10px] md:text-xs text-[#48A0D8] bg-[#F0F7FF] px-2 py-0.5 rounded-md mt-1.5 font-bold tracking-wide self-start border border-[#D0E6FB]">
+              เลือกแล้ว {selectedNodes.size} / {onlineCount} พื้นที่
+            </p>
+          </div>
+          
+          <div className="md:hidden text-gray-500 bg-gray-50 p-2 rounded-full hover:bg-gray-100 transition-colors">
+            {isMobileExpanded ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+          </div>
         </div>
 
-        {/* Body พื้นหลังสีเทาอ่อน สไตล์ Dashboard */}
-        <div className="flex-1 px-6 py-6 bg-[#F8FAFC] overflow-y-auto flex flex-col gap-5">
+        {/* Body */}
+        <div className={`
+          flex-1 bg-[#F8FAFC] flex flex-col gap-4 overflow-y-auto transition-all duration-300
+          ${isMobileExpanded ? 'max-h-[60vh] p-4 opacity-100' : 'max-h-0 p-0 opacity-0'} 
+          md:max-h-none md:p-6 md:opacity-100
+        `}>
           
           {/* Card: เลือกพื้นที่เป้าหมาย */}
-          <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-5">
-            <div className="flex justify-between items-center mb-4">
-              <p className="text-[11px] font-extrabold text-gray-400 tracking-widest uppercase">Target Area</p>
-              <div className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#F0F7FF] text-[#48A0D8] border border-[#D0E6FB]">
-                เลือกแล้ว {selectedNodes.size} / {onlineCount}
-              </div>
-            </div>
+          <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
+            <p className="text-[11px] font-extrabold text-gray-400 tracking-widest uppercase mb-3">Target Area</p>
 
             <div className="flex gap-2">
               <button 
                 onClick={handleSelectAll} 
                 className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-[#E5F3FF] hover:border-[#48A0D8] hover:text-[#48A0D8] transition-all text-gray-600"
               >
-                <CheckSquare size={16} /> เลือกทั้งหมด
+                <CheckSquare size={16} /> ทั้งหมด
               </button>
               <button 
                 onClick={() => setSelectedNodes(new Set())} 
                 className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-gray-100 transition-all text-gray-600"
               >
-                <SquareOutline size={16} /> ยกเลิกทั้งหมด
+                <SquareOutline size={16} /> ยกเลิก
               </button>
             </div>
             {selectedNodes.size === 0 && (
-              <p className="text-[11px] text-gray-400 text-center mt-3 font-medium">
+              <p className="text-[10px] md:text-[11px] text-gray-400 text-center mt-3 font-medium">
                 * คลิกที่หมุดเสาไฟบนแผนที่เพื่อเลือกพื้นที่เป้าหมาย
               </p>
             )}
           </div>
 
           {/* Card: ประกาศเสียงสด */}
-          <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
+          <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                 <Mic size={16} />
               </div>
               <div>
-                <p className="text-[13px] font-extrabold text-gray-800">Live Broadcast</p>
-                <p className="text-[11px] text-gray-500">พูดผ่านไมโครโฟนเพื่อกระจายเสียงสด</p>
+                <p className="text-[13px] font-extrabold text-gray-800 leading-tight">Live Broadcast</p>
+                <p className="text-[10px] md:text-[11px] text-gray-500">พูดผ่านไมโครโฟนเพื่อกระจายเสียง</p>
               </div>
             </div>
 
@@ -315,7 +351,7 @@ export default function Broadcast() {
                 disabled={isLoading || isAlarmPlaying || selectedNodes.size === 0}
                 className="w-full bg-[#48A0D8] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-md disabled:bg-gray-300 disabled:text-gray-500"
               >
-                {isLoading ? 'กำลังส่งคำสั่ง...' : '▶ เริ่มประกาศเสียง'}
+                {isLoading ? 'กำลังส่งคำสั่ง...' : '▶ เริ่มประกาศเสียงสด'}
               </button>
             ) : (
               <button 
@@ -329,14 +365,14 @@ export default function Broadcast() {
           </div>
 
           {/* Card: เสียงแจ้งเตือนภัย */}
-          <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center">
+          <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
                 <AlertTriangle size={16} />
               </div>
               <div>
-                <p className="text-[13px] font-extrabold text-gray-800">Emergency Alarm</p>
-                <p className="text-[11px] text-gray-500">เปิดเสียงไซเรนฉุกเฉินในพื้นที่</p>
+                <p className="text-[13px] font-extrabold text-gray-800 leading-tight">Emergency Alarm</p>
+                <p className="text-[10px] md:text-[11px] text-gray-500">เปิดไซเรนฉุกเฉินในพื้นที่</p>
               </div>
             </div>
 

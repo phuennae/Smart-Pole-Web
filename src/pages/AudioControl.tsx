@@ -2,12 +2,13 @@ import 'leaflet/dist/leaflet.css';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2, Music, BatteryCharging } from 'lucide-react';
+// ✅ 1. Import Icon ใหม่ (Focus) สำหรับทำปุ่มรีเซ็นเตอร์
+import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2, Music, BatteryCharging, Focus } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useUsers } from '../context/UserContext';
 import { API_URL } from '../config';
 
-// --- AutoFit Component ---
+// --- AutoFit Component (ทำงานตอนโหลดครั้งแรก) ---
 function AutoFit() {
   const map = useMap();
   const { nodes } = useNodes();
@@ -22,10 +23,42 @@ function AutoFit() {
   return null;
 }
 
+// ✅ 2. สร้าง component สำหรับปุ่ม Recenter (ซูมกลับมาหาเสาทั้งหมด)
+// Component นี้ต้องอยู่ข้างใน MapContainer เพื่อใช้ useMap() ได้
+function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
+  const map = useMap();
+
+  const handleRecenter = () => {
+    if (nodes && nodes.length > 0) {
+      const bounds = nodes.map(node => [node.lat, node.lng] as [number, number]);
+      // สั่งให้แผนที่ซูมกลับมายังขอบเขตของเสาทั้งหมด
+      map.fitBounds(bounds, { padding: [80, 80] }); // เพิ่ม padding เยอะหน่อยเพื่อให้ไม่ชิดขอบจอเกินไป
+    }
+  };
+
+  return (
+    // จัดตำแหน่งให้อยู่ขวาล่าง (leaflet-bottom leaflet-right)
+    // เพิ่ม margin เพื่อไม่ให้บังป้าย Attribution ของ OpenStreetMap
+    <div className="leaflet-bottom leaflet-right" style={{ marginBottom: '35px', marginRight: '10px' }}>
+      {/* ใช้ class มาตรฐานของ Leaflet เพื่อให้ได้สไตล์ปุ่มเหมือนปุ่ม + - */}
+      <div className="leaflet-control leaflet-bar shadow-xl">
+        <button
+          onClick={handleRecenter}
+          className="bg-white hover:bg-gray-100 text-gray-800 rounded flex items-center justify-center transition-colors"
+          style={{ width: '34px', height: '34px', border: 'none', outline: 'none' }}
+          title="ซูมกลับมายังเสาทั้งหมด"
+        >
+          <Focus size={20} className="text-gray-900" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Types ---
 interface Schedule { id: number; days: string; time: string; file: string; volume: number; }
 
-// --- AudioPoleMarker Component (แสดงชื่อค้างไว้เหมือนเดิม) ---
+// --- AudioPoleMarker Component (โชว์ชื่อค้างไว้เหมือนเดิม) ---
 function AudioPoleMarker({ 
   node, 
   isSelected, 
@@ -69,7 +102,7 @@ function AudioPoleMarker({
     ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
     : 'grayscale(100%) opacity(60%)';
 
-  // ✅ เอาคลาส group-hover ออก ให้ป้ายชื่อโชว์ค้างไว้ตลอด
+  // ป้ายชื่อโชว์ค้างไว้ตลอดเหมือนเดิม
   const customIcon = L.divIcon({
     className: 'custom-audio-icon',
     html: `
@@ -226,7 +259,7 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
           alert('อัปโหลดไฟล์สำเร็จ!');
           setFiles(prev => [...prev, file.name]);
       } else {
-          alert('อัปโหลดล้มเหลว: ' + data.message);
+          alert('อัปโหลดล้มหลว: ' + data.message);
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -409,11 +442,15 @@ export default function AudioControl() {
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden">
       
+      {/* ฝั่งซ้าย: แผนที่ระบบ */}
       <div className="flex-1 h-full relative z-0">
         <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
           <AutoFit />
           
+          {/* ✅ 3. นำปุ่ม Recenter Control มาวางข้างใน MapContainer */}
+          <RecenterControl nodes={nodes} />
+
           {nodes.map((node) => (
             <AudioPoleMarker 
               key={node.id} 
@@ -425,6 +462,7 @@ export default function AudioControl() {
         </MapContainer>
       </div>
 
+      {/* ฝั่งขวา: Sidebar ควบคุมเสียง */}
       {selectedNode && (
         <AudioSidebar 
           node={selectedNode} 

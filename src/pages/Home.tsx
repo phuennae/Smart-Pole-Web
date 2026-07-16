@@ -2,14 +2,15 @@ import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
-import { Share, X, Zap, Activity, Gauge, BatteryCharging } from 'lucide-react'; 
+// ✅ Import ไอคอน Focus สำหรับทำปุ่มรีเซ็นเตอร์
+import { Share, X, Zap, Activity, Gauge, BatteryCharging, Focus } from 'lucide-react'; 
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
 const TB_URL = "http://theoneiot.i234.me:9090";
 
-// --- AutoFit Component ---
+// --- AutoFit Component (ทำงานตอนโหลดครั้งแรก) ---
 function AutoFit() {
   const map = useMap();
   const { nodes } = useNodes();
@@ -24,7 +25,36 @@ function AutoFit() {
   return null;
 }
 
-// --- PoleMarker Component (อัปเกรดให้เช็คสถานะและเปลี่ยนสีได้เหมือนหน้าอื่น) ---
+// ✅ สร้าง component สำหรับปุ่ม Recenter (ซูมกลับมาหาเสาทั้งหมด)
+function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
+  const map = useMap();
+
+  const handleRecenter = () => {
+    if (nodes && nodes.length > 0) {
+      const bounds = nodes.map(node => [node.lat, node.lng] as [number, number]);
+      // สั่งให้แผนที่ซูมกลับมายังขอบเขตของเสาทั้งหมด
+      map.fitBounds(bounds, { padding: [80, 80] });
+    }
+  };
+
+  return (
+    // จัดตำแหน่งให้อยู่ขวาล่าง (เพิ่ม margin เพื่อไม่ให้บังป้าย Attribution)
+    <div className="leaflet-bottom leaflet-right" style={{ marginBottom: '35px', marginRight: '10px' }}>
+      <div className="leaflet-control leaflet-bar shadow-xl">
+        <button
+          onClick={handleRecenter}
+          className="bg-white hover:bg-gray-100 text-gray-800 rounded flex items-center justify-center transition-colors"
+          style={{ width: '34px', height: '34px', border: 'none', outline: 'none' }}
+          title="ซูมกลับมายังเสาทั้งหมด"
+        >
+          <Focus size={20} className="text-gray-900" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- PoleMarker Component ---
 function PoleMarker({ 
   node, 
   isSelected, 
@@ -92,7 +122,7 @@ function PoleMarker({
   );
 }
 
-// --- NodeSidebar Component (รีดีไซน์ใหม่) ---
+// --- NodeSidebar Component ---
 function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; onClose: () => void }) {
   const navigate = useNavigate();
   const [statusData, setStatusData] = useState<any>({
@@ -170,7 +200,6 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
   return (
     <div className="w-[360px] shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-10 relative transition-all duration-300">
       
-      {/* Header คลีนๆ แบบสีขาว-เทา */}
       <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col relative shrink-0">
         <button 
           onClick={onClose} 
@@ -206,7 +235,6 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
         )}
       </div>
 
-      {/* Body พื้นหลังสีเทาอ่อน สไตล์ Dashboard */}
       <div className="flex-1 px-6 py-6 bg-[#F8FAFC] overflow-y-auto">
         <p className="text-[11px] font-extrabold text-gray-400 mb-4 tracking-widest uppercase">
           Real-time Monitor
@@ -250,8 +278,6 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
 export default function Home() {
   const { nodes } = useNodes();
   const [token, setToken] = useState<string>('');
-  
-  // ✅ ใช้ State เก็บว่าตอนนี้เสาไหนถูกเลือกอยู่
   const [selectedNode, setSelectedNode] = useState<NodeItem | null>(null);
 
   useEffect(() => {
@@ -279,6 +305,9 @@ export default function Home() {
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
           <AutoFit />
           
+          {/* ✅ วางปุ่ม Recenter Control ตรงนี้ */}
+          <RecenterControl nodes={nodes} />
+
           {nodes.map((node) => (
              <PoleMarker 
                key={node.id} 

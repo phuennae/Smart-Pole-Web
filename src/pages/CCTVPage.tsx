@@ -2,7 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { X, Video, Eye, VideoOff } from 'lucide-react';
+import { X, Video, Eye, VideoOff, Focus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { API_URL } from '../config';
@@ -22,7 +22,34 @@ function AutoFit() {
   return null;
 }
 
-// --- CCTVPoleMarker Component (รับหน้าที่เช็คสถานะ Real-time) ---
+// ✅ คอมโพเนนต์ปุ่ม Recenter (ซูมกลับมาหาเสาทั้งหมด)
+function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
+  const map = useMap();
+
+  const handleRecenter = () => {
+    if (nodes && nodes.length > 0) {
+      const bounds = nodes.map(node => [node.lat, node.lng] as [number, number]);
+      map.fitBounds(bounds, { padding: [80, 80] });
+    }
+  };
+
+  return (
+    <div className="leaflet-bottom leaflet-right">
+      <div className="leaflet-control leaflet-bar shadow-xl !mb-[35px] !mr-[10px]">
+        <button
+          onClick={handleRecenter}
+          className="bg-white hover:bg-gray-100 text-gray-800 rounded flex items-center justify-center transition-colors"
+          style={{ width: '34px', height: '34px', border: 'none', outline: 'none' }}
+          title="ซูมกลับมายังเสาทั้งหมด"
+        >
+          <Focus size={20} className="text-gray-900" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- CCTVPoleMarker Component ---
 function CCTVPoleMarker({ 
   node, 
   isSelected, 
@@ -92,7 +119,7 @@ function CCTVPoleMarker({
   );
 }
 
-// --- CCTVSidebar Component (แผงควบคุมกล้องฝั่งขวา ดีไซน์ใหม่) ---
+// --- CCTVSidebar Component ---
 function CCTVSidebar({ 
   node, 
   online, 
@@ -107,7 +134,6 @@ function CCTVSidebar({
   return (
     <div className="w-[360px] shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-10 relative transition-all duration-300">
       
-      {/* Header สีขาว-เทา คลีนๆ */}
       <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col relative shrink-0">
         <button 
           onClick={onClose} 
@@ -128,13 +154,11 @@ function CCTVSidebar({
         </div>
       </div>
 
-      {/* Body พื้นหลังเทา สไตล์ Dashboard */}
       <div className="flex-1 px-6 py-6 bg-[#F8FAFC] overflow-y-auto flex flex-col gap-5">
         <p className="text-[11px] font-extrabold text-gray-400 tracking-widest uppercase">
           CCTV Camera System
         </p>
 
-        {/* การ์ดสถานะกล้อง */}
         <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-6 flex flex-col items-center text-center pb-8">
           <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${online ? 'bg-blue-50 text-[#48A0D8]' : 'bg-gray-100 text-gray-400'}`}>
             <Video size={32} />
@@ -143,7 +167,6 @@ function CCTVSidebar({
           <p className="text-xs text-gray-400 mt-1 font-medium">ระบบสตรีมสัญญาณภาพสด</p>
         </div>
 
-        {/* ปุ่มคำสั่งตามสถานะ */}
         {online ? (
           <button 
             onClick={() => navigate(`/cctv-monitor/${node.id}`)}
@@ -178,11 +201,13 @@ export default function CCTVPage() {
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden font-sans">
       
-      {/* ฝั่งซ้าย: แผนที่ระบบกล้อง */}
       <div className="flex-1 h-full relative z-0">
         <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
           <AutoFit />
+          
+          {/* ✅ วางปุ่ม Recenter Control ตรงนี้ */}
+          <RecenterControl nodes={nodes} />
           
           {nodes.map((node) => (
             <CCTVPoleMarker 
@@ -198,7 +223,6 @@ export default function CCTVPage() {
         </MapContainer>
       </div>
 
-      {/* ฝั่งขวา: Sidebar ข้อมูลและปุ่มสตรีมกล้อง */}
       {selectedNode && (
         <CCTVSidebar 
           node={selectedNode} 
