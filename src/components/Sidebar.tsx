@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -10,6 +10,10 @@ import { useUsers } from '../context/UserContext';
 export default function Sidebar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  
+  // ✅ 1. สร้าง Ref เพื่ออ้างอิงถึงกรอบของเมนูตั้งค่า
+  const menuRef = useRef<HTMLDivElement>(null);
+  
   const { currentUser, logout } = useUsers();
   const navigate = useNavigate();
 
@@ -17,6 +21,28 @@ export default function Sidebar() {
     logout();
     navigate('/login');
   };
+
+  // ✅ 2. เพิ่ม useEffect เพื่อคอยฟังเหตุการณ์ "คลิกเมาส์" ทั่วทั้งหน้าจอ
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      // ถ้าคลิกไปโดนส่วนอื่น ที่ไม่ใช่ลูกหลานของ menuRef (คือไม่ได้คลิกโดนปุ่มหรือกล่องเมนู)
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false); // สั่งปิดเมนู
+      }
+    }
+
+    // เปิดเรดาร์จับการคลิก (จะจับเมื่อเมนูเปิดอยู่เท่านั้น เพื่อไม่ให้หน่วงเครื่อง)
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    // คลีนอัปเมื่อ Component ตาย หรือ ค่า isMenuOpen เปลี่ยน
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
 
   return (
     <>
@@ -35,7 +61,8 @@ export default function Sidebar() {
           <SidebarButton to="/cctv" icon={<Video size={28} />} line1="CCTV /" line2="กล้องวงจรปิด" />
         </nav>
 
-        <div className="relative mt-auto pt-4 flex flex-col items-center justify-center pb-2">
+        {/* ✅ 3. เอา menuRef มาคลุมพื้นที่ปุ่มตั้งค่าและกล่อง Dropdown ไว้ */}
+        <div ref={menuRef} className="relative mt-auto pt-4 flex flex-col items-center justify-center pb-2">
           
           {/* เมนู dropdown */}
           {isMenuOpen && (
