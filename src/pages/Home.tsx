@@ -1,8 +1,7 @@
 import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useEffect, useState } from 'react';
-import { Icon } from 'leaflet';
-// ✅ Import ไอคอนเพิ่มเติมสำหรับตกแต่งการ์ดข้อมูล
+import L from 'leaflet';
 import { Share, X, Zap, Activity, Gauge, BatteryCharging } from 'lucide-react'; 
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useNavigate } from 'react-router-dom';
@@ -25,28 +24,71 @@ function AutoFit() {
   return null;
 }
 
-const smartPoleIcon = new Icon({
-  iconUrl: '/pole.png',
-  iconSize: [40, 80],
-  iconAnchor: [20, 80],
-  popupAnchor: [0, -80]
-});
+// --- PoleMarker Component (อัปเกรดให้เช็คสถานะและเปลี่ยนสีได้เหมือนหน้าอื่น) ---
+function PoleMarker({ 
+  node, 
+  isSelected, 
+  onSelect 
+}: { 
+  node: NodeItem; 
+  isSelected: boolean; 
+  onSelect: (node: NodeItem, isOnline: boolean) => void; 
+}) {
+  const [online, setOnline] = useState(false);
 
-// --- PoleMarker Component ---
-function PoleMarker({ node, onSelect }: { node: NodeItem; onSelect: () => void }) {
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`${API_URL}/get_node_status.php?id=${node.id}`);
+        const data = await res.json();
+        
+        if (isMounted && data.status === 'success') {
+          setOnline(data.online);
+        } else if (isMounted) {
+          setOnline(false);
+        }
+      } catch (err) {
+        if (isMounted) setOnline(false);
+      }
+    };
+
+    fetchStatus();
+    const intervalId = setInterval(fetchStatus, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [node.id]);
+
+  const statusDot = online ? 'bg-[#76E136]' : 'bg-red-500';
+  const filterStyle = online 
+    ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
+    : 'grayscale(100%) opacity(60%)';
+
+  const customIcon = L.divIcon({
+    className: 'custom-home-icon',
+    html: `
+      <div style="display: flex; flex-direction: column; align-items: center; width: 100px; transition: all 0.3s; cursor: pointer; transform: ${isSelected ? 'scale(1.05)' : 'scale(1)'}">
+        <img src="/pole.png" style="width: 40px; height: 80px; object-fit: contain; filter: ${filterStyle};" />
+        <div class="${isSelected ? 'bg-[#48A0D8]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors">
+          <div class="w-1.5 h-1.5 rounded-full ${statusDot} ${online && isSelected ? 'animate-pulse' : ''}"></div>
+          ${node.name}
+        </div>
+      </div>
+    `,
+    iconSize: [100, 110],
+    iconAnchor: [50, 100]
+  });
+
   return (
     <Marker 
       position={[node.lat, node.lng]} 
-      icon={smartPoleIcon}
-      eventHandlers={{ click: () => onSelect() }}
-    >
-      <Popup offset={[0, -40]}>
-        <div className="text-center font-sans p-1">
-          <p className="font-bold text-sm text-gray-950">{node.name}</p>
-          <p className="text-[11px] text-gray-500 mt-0.5">คลิกเพื่อดูข้อมูลพลังงานฝั่งขวา</p>
-        </div>
-      </Popup>
-    </Marker>
+      icon={customIcon}
+      eventHandlers={{ click: () => onSelect(node, online) }}
+    />
   );
 }
 
@@ -110,7 +152,6 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
 
   const { online, data } = statusData;
 
-  // คอมโพเนนต์ย่อยสำหรับแสดงการ์ดข้อมูลแต่ละตัวให้โค้ดดูสะอาด
   const DataCard = ({ title, value, unit, icon, colorClass, bgClass }: any) => (
     <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
       <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${bgClass} ${colorClass}`}>
@@ -209,6 +250,8 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
 export default function Home() {
   const { nodes } = useNodes();
   const [token, setToken] = useState<string>('');
+  
+  // ✅ ใช้ State เก็บว่าตอนนี้เสาไหนถูกเลือกอยู่
   const [selectedNode, setSelectedNode] = useState<NodeItem | null>(null);
 
   useEffect(() => {
@@ -237,7 +280,12 @@ export default function Home() {
           <AutoFit />
           
           {nodes.map((node) => (
-             <PoleMarker key={node.id} node={node} onSelect={() => setSelectedNode(node)} />
+             <PoleMarker 
+               key={node.id} 
+               node={node} 
+               isSelected={selectedNode?.id === node.id}
+               onSelect={(targetNode) => setSelectedNode(targetNode)} 
+             />
           ))}
         </MapContainer>
       </div>

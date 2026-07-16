@@ -1,7 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { Icon } from 'leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2, Music, BatteryCharging } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useUsers } from '../context/UserContext';
@@ -25,22 +25,72 @@ function AutoFit() {
 // --- Types ---
 interface Schedule { id: number; days: string; time: string; file: string; volume: number; }
 
-const smartPoleIcon = new Icon({ iconUrl: '/pole.png', iconSize: [40, 80], iconAnchor: [20, 80], popupAnchor: [0, -40] });
+// --- AudioPoleMarker Component (แสดงชื่อค้างไว้เหมือนเดิม) ---
+function AudioPoleMarker({ 
+  node, 
+  isSelected, 
+  onSelect 
+}: { 
+  node: NodeItem; 
+  isSelected: boolean; 
+  onSelect: (node: NodeItem) => void; 
+}) {
+  const [online, setOnline] = useState(false);
 
-// --- AudioPoleMarker Component (แบบมินิมอล) ---
-function AudioPoleMarker({ node, onSelect }: { node: NodeItem; onSelect: () => void }) {
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`${API_URL}/get_node_status.php?id=${node.id}`);
+        const data = await res.json();
+        
+        if (isMounted && data.status === 'success') {
+          setOnline(data.online);
+        } else if (isMounted) {
+          setOnline(false);
+        }
+      } catch (err) {
+        if (isMounted) setOnline(false);
+      }
+    };
+
+    fetchStatus();
+    const intervalId = setInterval(fetchStatus, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [node.id]);
+
+  const statusDot = online ? 'bg-[#76E136]' : 'bg-red-500';
+  const filterStyle = online 
+    ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
+    : 'grayscale(100%) opacity(60%)';
+
+  // ✅ เอาคลาส group-hover ออก ให้ป้ายชื่อโชว์ค้างไว้ตลอด
+  const customIcon = L.divIcon({
+    className: 'custom-audio-icon',
+    html: `
+      <div style="display: flex; flex-direction: column; align-items: center; width: 100px; transition: all 0.3s; cursor: pointer; transform: ${isSelected ? 'scale(1.05)' : 'scale(1)'}">
+        <img src="/pole.png" style="width: 40px; height: 80px; object-fit: contain; filter: ${filterStyle};" />
+        <div class="${isSelected ? 'bg-[#48A0D8]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors duration-300">
+          <div class="w-1.5 h-1.5 rounded-full ${statusDot} ${online && isSelected ? 'animate-pulse' : ''}"></div>
+          ${node.name}
+        </div>
+      </div>
+    `,
+    iconSize: [100, 110],
+    iconAnchor: [50, 100]
+  });
+
   return (
     <Marker 
       position={[node.lat, node.lng]} 
-      icon={smartPoleIcon}
-      eventHandlers={{ click: onSelect }}
-    >
-      <Popup offset={[0, 0]}>
-        <div className="text-center font-sans p-1">
-          <p className="font-bold text-sm text-gray-950">{node.name}</p>
-        </div>
-      </Popup>
-    </Marker>
+      icon={customIcon}
+      eventHandlers={{ click: () => onSelect(node) }}
+    />
   );
 }
 
@@ -57,7 +107,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
   const [showSchedule, setShowSchedule] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // 1. ดึงข้อมูล Real-time
   useEffect(() => {
     let isMounted = true;
 
@@ -109,7 +158,7 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
     };
 
     fetchStatusAndFiles();
-    const intervalId = setInterval(fetchStatusAndFiles, 10000); // ดึงเฉพาะเสาที่เปิดอยู่
+    const intervalId = setInterval(fetchStatusAndFiles, 10000);
 
     return () => {
       isMounted = false;
@@ -117,7 +166,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
     };
   }, [node.id, node.ip, node.port]);
 
-  // 2. ฟังก์ชันสั่งเล่นเพลง
   const handlePlay = async () => {
     if (!selectedFile || selectedFile === "" || !online) {
       alert("กรุณาเลือกไฟล์เพลงก่อนกดเล่นครับ");
@@ -136,7 +184,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
     }
   };
 
-  // 3. ฟังก์ชันสั่งหยุดเพลง
   const handleStop = async () => {
     if (!online) return;
     try {
@@ -150,7 +197,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
     }
   };
 
-  // 4. ฟังก์ชันอัปโหลดไฟล์
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (currentUser?.role === 'USER') {
       alert("สิทธิ์ผู้ใช้งานทั่วไป ไม่สามารถอัปโหลดไฟล์เพลงได้ครับ");
@@ -191,7 +237,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
     }
   };
 
-  // 5. ฟังก์ชันปรับเสียง
   const handleSetVolume = async (newVolume: number) => {
     if (!online) return;
     try {
@@ -206,7 +251,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
     <>
       <div className="w-[360px] shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-10 relative transition-all duration-300">
         
-        {/* Header คลีนๆ สีขาว-เทา (ดีไซน์เดียวกับหน้า Home) */}
         <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col relative shrink-0">
           <button 
             onClick={onClose} 
@@ -233,7 +277,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
           </div>
         </div>
 
-        {/* Body พื้นหลังสีเทาอ่อน สไตล์ Dashboard */}
         <div className="flex-1 px-6 py-6 bg-[#F8FAFC] overflow-y-auto relative">
           
           {isUploading && (
@@ -243,7 +286,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
              </div>
           )}
 
-          {/* ✅ ส่วนที่แสดงสถานะกำลังเล่นเพลงและชื่อไฟล์ */}
           <div className="flex justify-between items-end mb-4 gap-2">
             <p className="text-[11px] font-extrabold text-gray-400 tracking-widest uppercase shrink-0">
               Audio Control
@@ -260,7 +302,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
 
           <div className="flex flex-col gap-4">
             
-            {/* Card: เครื่องเล่นเพลง */}
             <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-5">
               {!online ? (
                 <div className="text-center py-4">
@@ -271,7 +312,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  {/* Select File */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold text-gray-600">เลือกไฟล์เพลง</label>
                     {files.length > 0 ? (
@@ -293,7 +333,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
                     )}
                   </div>
 
-                  {/* Play / Pause Buttons */}
                   <div className="flex gap-2">
                     <button 
                       onClick={handlePlay} 
@@ -311,7 +350,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
                     </button>
                   </div>
 
-                  {/* Upload Button */}
                   {currentUser?.role !== 'USER' && (
                     <label className="w-full mt-1 flex items-center justify-center gap-2 text-sm font-bold bg-[#F0F7FF] text-[#48A0D8] border border-[#D0E6FB] rounded-xl px-4 py-2.5 hover:bg-[#E5F3FF] transition-colors cursor-pointer shadow-sm">
                       <CloudUpload size={18} />
@@ -323,7 +361,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
               )}
             </div>
 
-            {/* Card: ระดับเสียง */}
             <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-5">
                <div className="flex justify-between items-center mb-3">
                  <label className="text-xs font-bold text-gray-600 flex items-center gap-1.5"><Volume2 size={16}/> ระดับเสียง</label>
@@ -341,7 +378,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
                 />
             </div>
             
-            {/* Button: ตั้งเวลา */}
             <button 
               onClick={() => setShowSchedule(true)} 
               className="mt-2 w-full bg-gray-800 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold shadow-md hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -373,7 +409,6 @@ export default function AudioControl() {
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden">
       
-      {/* ฝั่งซ้าย: แผนที่ระบบ */}
       <div className="flex-1 h-full relative z-0">
         <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
@@ -383,13 +418,13 @@ export default function AudioControl() {
             <AudioPoleMarker 
               key={node.id} 
               node={node} 
-              onSelect={() => setSelectedNode(node)} 
+              isSelected={selectedNode?.id === node.id}
+              onSelect={(targetNode) => setSelectedNode(targetNode)} 
             />
           ))}
         </MapContainer>
       </div>
 
-      {/* ฝั่งขวา: Sidebar ควบคุมเสียง */}
       {selectedNode && (
         <AudioSidebar 
           node={selectedNode} 
