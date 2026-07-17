@@ -136,7 +136,7 @@ export default function CCTVMonitor() {
           </div>
         </div>
 
-        {/* ปุ่มควบคุม PTZ */}
+        {/* ปุ่มควบคุม PTZ (รองรับทั้งคลิกเมาส์และทัชสกรีน) */}
         <div className={`mt-10 flex flex-col items-center transition-opacity ${!isNodeOnline ? 'opacity-50 pointer-events-none' : ''}`}>
            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
              <i className="fas fa-gamepad text-[#48A0D8]"></i> ควบคุมทิศทางกล้อง
@@ -144,21 +144,83 @@ export default function CCTVMonitor() {
            
            <div className="grid grid-cols-3 gap-3 mb-3">
               <div></div>
-              <button onMouseDown={() => handlePTZ('up')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"><ArrowUp size={28} /></button>
+              <button 
+                onMouseDown={() => handlePTZ('up')} 
+                onMouseUp={() => handlePTZ('stop')}
+                onMouseLeave={() => handlePTZ('stop')}
+                onTouchStart={() => handlePTZ('up')}
+                onTouchEnd={() => handlePTZ('stop')}
+                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
+              >
+                <ArrowUp size={28} />
+              </button>
               <div></div>
               
-              <button onMouseDown={() => handlePTZ('left')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"><ArrowLeftIcon size={28} /></button>
-              <button onClick={() => handlePTZ('stop')} className="bg-red-600 p-5 rounded-2xl text-white hover:bg-red-700 shadow-lg transition-all active:scale-95"><Square size={28} /></button>
-              <button onMouseDown={() => handlePTZ('right')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"><ArrowRight size={28} /></button>
+              <button 
+                onMouseDown={() => handlePTZ('left')} 
+                onMouseUp={() => handlePTZ('stop')}
+                onMouseLeave={() => handlePTZ('stop')}
+                onTouchStart={() => handlePTZ('left')}
+                onTouchEnd={() => handlePTZ('stop')}
+                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
+              >
+                <ArrowLeftIcon size={28} />
+              </button>
+              
+              <button 
+                onClick={() => handlePTZ('stop')} 
+                className="bg-red-600 p-5 rounded-2xl text-white hover:bg-red-700 shadow-lg transition-all active:scale-95"
+              >
+                <Square size={28} />
+              </button>
+              
+              <button 
+                onMouseDown={() => handlePTZ('right')} 
+                onMouseUp={() => handlePTZ('stop')}
+                onMouseLeave={() => handlePTZ('stop')}
+                onTouchStart={() => handlePTZ('right')}
+                onTouchEnd={() => handlePTZ('stop')}
+                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
+              >
+                <ArrowRight size={28} />
+              </button>
               
               <div></div>
-              <button onMouseDown={() => handlePTZ('down')} onMouseUp={() => handlePTZ('stop')} className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"><ArrowDown size={28} /></button>
+              <button 
+                onMouseDown={() => handlePTZ('down')} 
+                onMouseUp={() => handlePTZ('stop')}
+                onMouseLeave={() => handlePTZ('stop')}
+                onTouchStart={() => handlePTZ('down')}
+                onTouchEnd={() => handlePTZ('stop')}
+                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
+              >
+                <ArrowDown size={28} />
+              </button>
               <div></div>
            </div>
 
            <div className="flex gap-4">
-              <button onMouseDown={() => handlePTZ('zoomin')} onMouseUp={() => handlePTZ('stop')} className="bg-gray-700 py-3 px-6 rounded-xl font-bold text-white hover:bg-gray-800 transition-all flex items-center gap-2 shadow-md active:scale-95"><ZoomIn size={18}/> ซูมเข้า</button>
-              <button onMouseDown={() => handlePTZ('zoomout')} onMouseUp={() => handlePTZ('stop')} className="bg-gray-700 py-3 px-6 rounded-xl font-bold text-white hover:bg-gray-800 transition-all flex items-center gap-2 shadow-md active:scale-95"><ZoomOut size={18}/> ซูมออก</button>
+              <button 
+                onMouseDown={() => handlePTZ('zoomin')} 
+                onMouseUp={() => handlePTZ('stop')}
+                onMouseLeave={() => handlePTZ('stop')}
+                onTouchStart={() => handlePTZ('zoomin')}
+                onTouchEnd={() => handlePTZ('stop')}
+                className="bg-gray-700 py-3 px-6 rounded-xl font-bold text-white hover:bg-gray-800 transition-all flex items-center gap-2 shadow-md active:scale-95"
+              >
+                <ZoomIn size={18}/> ซูมเข้า
+              </button>
+              
+              <button 
+                onMouseDown={() => handlePTZ('zoomout')} 
+                onMouseUp={() => handlePTZ('stop')}
+                onMouseLeave={() => handlePTZ('stop')}
+                onTouchStart={() => handlePTZ('zoomout')}
+                onTouchEnd={() => handlePTZ('stop')}
+                className="bg-gray-700 py-3 px-6 rounded-xl font-bold text-white hover:bg-gray-800 transition-all flex items-center gap-2 shadow-md active:scale-95"
+              >
+                <ZoomOut size={18}/> ซูมออก
+              </button>
            </div>
         </div>
       </div>
