@@ -71,8 +71,8 @@ export default function CCTVMonitor() {
         speed: 0.5
       };
 
-      // 🚨 เปลี่ยนแค่บรรทัดนี้ ให้ยิงทะลุไปหาพอร์ต 82 โดยตรง
-      const response = await fetch(`http://171.99.250.125:82/ptz_proxy.php`, {
+      // ✅ เปลี่ยนกลับมาใช้ API_URL ปกติ (พอร์ต 80) ตามที่ระบบควรจะเป็น
+      const response = await fetch(`${API_URL}/ptz_proxy.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
