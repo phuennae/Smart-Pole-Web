@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Mic, Square, AlertTriangle, CheckSquare, Square as SquareOutline, Radio, ChevronUp, ChevronDown, Focus } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
-import { useUsers } from '../context/UserContext'; // ✅ 1. Import useUsers
-import { logAction } from '../logger'; // ✅ 2. Import logAction
+import { useUsers } from '../context/UserContext'; 
+import { logAction } from '../logger'; 
 import 'leaflet/dist/leaflet.css';
 import { API_URL } from '../config';
+
+// 🌐 URL สำหรับส่งสตรีมมิ่งเสียง (WebSocket) ไปยัง Server
+const STREAM_WS_URL = "ws://theoneiot.i234.me:3000"; 
 
 // --- AutoFit Component ---
 function AutoFit() {
@@ -51,7 +54,7 @@ function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
 
 export default function Broadcast() {
   const { nodes } = useNodes();
-  const { currentUser } = useUsers(); // ✅ 3. ดึงข้อมูล User ปัจจุบัน
+  const { currentUser } = useUsers(); 
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   
   const [onlineStatuses, setOnlineStatuses] = useState<Record<string, boolean>>({});
@@ -60,6 +63,14 @@ export default function Broadcast() {
   const [isLoading, setIsLoading] = useState(false);
   
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+
+  // 🎤 State & Refs สำหรับระบบไมโครโฟน
+  const [micVolume, setMicVolume] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const onlineCount = Object.values(onlineStatuses).filter(Boolean).length;
 
@@ -92,6 +103,11 @@ export default function Broadcast() {
       clearInterval(intervalId);
     };
   }, [nodes]);
+
+  // ล้างการเชื่อมต่อไมค์เมื่อผู้ใช้ปิดหรือเปลี่ยนหน้าเว็บ
+  useEffect(() => {
+    return () => stopMicrophone();
+  }, []);
 
   useEffect(() => {
     setSelectedNodes(prev => {
@@ -132,42 +148,133 @@ export default function Broadcast() {
     setSelectedNodes(new Set(onlineNodeIds));
   };
 
+  // --------------------------------------------------------
+  // 🎤 ฟังก์ชันจัดการไมโครโฟน
+  // --------------------------------------------------------
+  const renderVolumeMeter = () => {
+    if (!audioContextRef.current || !analyserRef.current) return;
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+    
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i];
+    }
+    const average = sum / dataArray.length;
+    
+    // ✅ 1. ปรับตัวหารจาก 100 เป็น 40 เพื่อเพิ่มความไวของหลอดเสียง (พูดเบาๆ หลอดก็ขยับ)
+    const volumePercent = Math.min(100, Math.round((average / 40) * 100));
+    
+    setMicVolume(volumePercent);
+    
+    // ✅ 2. เอา if (...) ออก เพื่อให้ Loop วาดหลอดเสียงทำงานต่อเนื่องได้
+    animationFrameRef.current = requestAnimationFrame(renderVolumeMeter);
+  };
+
+  const stopMicrophone = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+    }
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null; // ✅ 3. เคลียร์ค่าคืนเป็น null 
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    setMicVolume(0);
+  };
+
   const handleStartBroadcast = async () => {
     if (selectedNodes.size === 0) {
       alert("กรุณาเลือกเสาไฟบนแผนที่ก่อนครับ");
       return;
     }
-    const nodesArray = Array.from(selectedNodes);
+    
     setIsLoading(true);
+
     try {
-      const formData = new FormData();
-      formData.append('nodes', JSON.stringify(nodesArray));
-      await fetch(`${API_URL}/broadcast_live.php`, { method: 'POST', body: formData });
-      setIsBroadcasting(true);
+      // 1. ขออนุญาตใช้งานไมโครโฟน
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // 2. ตั้งค่าการวาดหลอดเสียง (Visualizer)
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const microphone = audioContext.createMediaStreamSource(stream);
+      microphone.connect(analyser);
+      analyser.fftSize = 256;
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      renderVolumeMeter(); 
 
-      // ✅ 4. บันทึก Log การประกาศเสียงสด (หากเลือกหลายเสาเกินไป ให้แสดงจำนวนจุดแทน)
-      const targetNames = nodesArray.map(id => nodes.find(n => n.id === id)?.name).join(', ');
-      logAction(
-        currentUser?.name || 'Unknown', 
-        'เริ่มประกาศเสียงสด', 
-        targetNames.length > 60 ? `หลายพื้นที่ (${selectedNodes.size} จุด)` : targetNames
-      );
+      // 3. เชื่อมต่อ WebSocket ไปยัง Server สตรีมมิ่ง
+      const ws = new WebSocket(STREAM_WS_URL);
+      wsRef.current = ws;
 
-    } catch (error) {
-      console.error("Broadcast Error:", error);
-      alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
-    } finally {
+      ws.onopen = async () => {
+        // 4. เมื่อต่อ WebScoket ติด ให้เริ่มหั่นเสียงส่งไป
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+            ws.send(e.data); // ยิงก้อนเสียงเข้า WebSocket ตรงๆ
+          }
+        };
+        mediaRecorder.start(250); // หั่นเสียงส่งทุกๆ 250ms เพื่อความเรียลไทม์
+
+        // 5. ส่งคำสั่งให้เสาไฟเริ่มดึงเสียง (ผ่าน PHP)
+        const nodesArray = Array.from(selectedNodes);
+        const formData = new FormData();
+        formData.append('nodes', JSON.stringify(nodesArray));
+        await fetch(`${API_URL}/broadcast_live.php`, { method: 'POST', body: formData });
+        
+        setIsBroadcasting(true);
+        setIsLoading(false);
+
+        // 6. บันทึกประวัติการใช้งาน (Log)
+        const targetNames = nodesArray.map(id => nodes.find(n => n.id === id)?.name).join(', ');
+        logAction(
+          currentUser?.name || 'Unknown', 
+          'เริ่มประกาศเสียงสด', 
+          targetNames.length > 60 ? `หลายพื้นที่ (${selectedNodes.size} จุด)` : targetNames
+        );
+      };
+
+      ws.onerror = (e) => {
+        console.error("WebSocket Error:", e);
+        alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์กระจายเสียงได้");
+        stopMicrophone();
+        setIsLoading(false);
+      };
+
+    } catch (error: any) {
+      console.error("Mic Error:", error);
+      if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+        alert("กรุณากดอนุญาตให้ใช้งานไมโครโฟนก่อนครับ \n(หากใช้งานผ่าน HTTP ให้ดูวิธีตั้งค่าที่ด้านบน)");
+      } else {
+        alert("ไม่สามารถเข้าถึงไมโครโฟนได้ หรือตรวจไม่พบไมโครโฟนในระบบ");
+      }
       setIsLoading(false);
     }
   };
 
   const handleStopBroadcast = async () => {
-    const nodesArray = Array.from(selectedNodes);
     setIsLoading(true);
     try {
+      // 1. ปิดไมค์และการเชื่อมต่อ
+      stopMicrophone();
+
+      // 2. ส่งคำสั่งให้เสาไฟหยุดเล่น (ผ่าน PHP)
+      const nodesArray = Array.from(selectedNodes);
       const formData = new FormData();
       formData.append('nodes', JSON.stringify(nodesArray));
       await fetch(`${API_URL}/broadcast_stop.php`, { method: 'POST', body: formData });
+      
       setIsBroadcasting(false);
     } catch (error) {
       console.error("Stop Error:", error);
@@ -194,7 +301,7 @@ export default function Broadcast() {
           const formData = new URLSearchParams();
           formData.append('node_id', targetNode.id);
           formData.append('ip', (targetNode as any).ip_address); 
-          formData.append('file', 'alarm.mp3'); 
+          formData.append('file', 'alarm007.mp3'); // ✅ อัปเดตชื่อไฟล์เป็น alarm007.mp3
 
           await fetch(`${API_URL}/play_audio.php`, {
             method: 'POST',
@@ -205,7 +312,6 @@ export default function Broadcast() {
       }
       setIsAlarmPlaying(true); 
 
-      // ✅ 5. บันทึก Log การเปิด Alarm
       const targetNames = nodesArray.map(id => nodes.find(n => n.id === id)?.name).join(', ');
       logAction(
         currentUser?.name || 'Unknown', 
@@ -247,6 +353,10 @@ export default function Broadcast() {
       setIsLoading(false);
     }
   };
+
+  // เช็คเรื่องความปลอดภัยสำหรับการแจ้งเตือน HTTP
+  const isSecure = window.isSecureContext;
+  const currentUrl = window.location.origin;
 
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex flex-col md:flex-row overflow-hidden font-sans">
@@ -301,7 +411,6 @@ export default function Broadcast() {
         md:static md:w-[360px] md:h-full md:rounded-none md:border-l md:border-t-0 md:shadow-[-10px_0_30px_rgba(0,0,0,0.05)] md:flex-shrink-0
       `}>
         
-        {/* Header */}
         <div 
           onClick={() => { if (window.innerWidth < 768) setIsMobileExpanded(!isMobileExpanded); }}
           className="bg-white px-5 py-4 md:px-6 md:py-6 border-b border-gray-100 flex items-center justify-between cursor-pointer md:cursor-default shrink-0"
@@ -320,13 +429,35 @@ export default function Broadcast() {
           </div>
         </div>
 
-        {/* Body */}
         <div className={`
           flex-1 bg-[#F8FAFC] flex flex-col gap-4 overflow-y-auto transition-all duration-300
           ${isMobileExpanded ? 'max-h-[60vh] p-4 opacity-100' : 'max-h-0 p-0 opacity-0'} 
           md:max-h-none md:p-6 md:opacity-100
         `}>
           
+          {/* กล่องแจ้งเตือน HTTP (จะซ่อนตัวเองถ้าเป็น HTTPS) */}
+          {!isSecure && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm mb-1">
+              <div className="flex gap-3">
+                <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={20} />
+                <div className="text-sm text-yellow-800 font-medium">
+                  <p className="font-bold text-yellow-700 mb-1 text-[13px]">
+                    สำหรับผู้ใช้งานผ่าน HTTP (ไม่มี SSL)
+                  </p>
+                  <p className="mb-2 text-gray-700 text-[11px] leading-relaxed">
+                    หากปุ่มกดใช้งานไมค์ไม่ทำงาน ให้ตั้งค่า Chrome เพื่ออนุญาตการใช้ไมค์ผ่าน IP ดังนี้:
+                  </p>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-gray-700 text-[11px]">
+                    <li>พิมพ์ <code className="bg-white px-1.5 py-0.5 rounded text-red-500 border border-red-100 font-mono text-[10px]">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> ในช่อง URL</li>
+                    <li>ในหัวข้อ <strong>"Insecure origins treated as secure"</strong> ให้เลือกเป็น <span className="font-bold">Enabled</span></li>
+                    <li>นำ URL ของหน้าเว็บนี้ไปใส่ในช่องว่าง: <code className="bg-white px-1.5 py-0.5 rounded text-red-500 border border-red-100 font-mono text-[10px] break-all">{currentUrl}</code></li>
+                    <li>กดปุ่ม <strong>Relaunch</strong> เพื่อเริ่มการทำงานใหม่</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
             <p className="text-[11px] font-extrabold text-gray-400 tracking-widest uppercase mb-3">Target Area</p>
 
@@ -352,15 +483,35 @@ export default function Broadcast() {
           </div>
 
           <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                <Mic size={16} />
-              </div>
-              <div>
-                <p className="text-[13px] font-extrabold text-gray-800 leading-tight">Live Broadcast</p>
-                <p className="text-[10px] md:text-[11px] text-gray-500">พูดผ่านไมโครโฟนเพื่อกระจายเสียง</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${isBroadcasting ? 'bg-red-100 text-red-500 animate-pulse' : 'bg-blue-50 text-blue-500'}`}>
+                  <Mic size={16} />
+                </div>
+                <div>
+                  <p className="text-[13px] font-extrabold text-gray-800 leading-tight">Live Broadcast</p>
+                  <p className="text-[10px] md:text-[11px] text-gray-500">พูดผ่านไมโครโฟนเพื่อกระจายเสียง</p>
+                </div>
               </div>
             </div>
+
+            {/* หลอดแสดงระดับเสียงไมค์ */}
+            {isBroadcasting && (
+              <div className="mb-4">
+                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
+                  <span>ระดับเสียงไมโครโฟน</span>
+                  <span className={micVolume > 5 ? 'text-[#48A0D8]' : ''}>
+                    {micVolume > 5 ? 'กำลังรับเสียง...' : 'เงียบ'}
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-[#48A0D8] transition-all duration-75"
+                    style={{ width: `${micVolume}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
 
             {!isBroadcasting ? (
               <button 
@@ -368,7 +519,7 @@ export default function Broadcast() {
                 disabled={isLoading || isAlarmPlaying || selectedNodes.size === 0}
                 className="w-full bg-[#48A0D8] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-md disabled:bg-gray-300 disabled:text-gray-500"
               >
-                {isLoading ? 'กำลังส่งคำสั่ง...' : '▶ เริ่มประกาศเสียงสด'}
+                {isLoading ? 'กำลังเชื่อมต่อ...' : '▶ เริ่มประกาศเสียงสด'}
               </button>
             ) : (
               <button 
@@ -376,7 +527,7 @@ export default function Broadcast() {
                 disabled={isLoading}
                 className="w-full bg-red-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all animate-pulse shadow-md"
               >
-                <Square size={16} fill="currentColor" /> {isLoading ? 'กำลังส่งคำสั่ง...' : 'หยุดประกาศเสียง'}
+                <Square size={16} fill="currentColor" /> {isLoading ? 'กำลังหยุด...' : 'หยุดประกาศเสียง'}
               </button>
             )}
           </div>
