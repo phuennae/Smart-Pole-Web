@@ -8,7 +8,7 @@ import { logAction } from '../logger';
 import 'leaflet/dist/leaflet.css';
 import { API_URL } from '../config';
 
-// 🌐 URL สำหรับส่งสตรีมมิ่งเสียง (WebSocket) ไปยัง Server
+// 🌐 URL สำหรับส่งสตรีมมิ่งเสียง (WebSocket) ไปยัง Server 
 const STREAM_WS_URL = "ws://theoneiot.i234.me:3000"; 
 
 // --- AutoFit Component ---
@@ -63,6 +63,9 @@ export default function Broadcast() {
   const [isLoading, setIsLoading] = useState(false);
   
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+  
+  // ✅ เพิ่ม State ควบคุม Pop-up ยืนยัน Alarm
+  const [showAlarmConfirm, setShowAlarmConfirm] = useState(false);
 
   // 🎤 State & Refs สำหรับระบบไมโครโฟน
   const [micVolume, setMicVolume] = useState(0);
@@ -161,14 +164,13 @@ export default function Broadcast() {
       sum += dataArray[i];
     }
     const average = sum / dataArray.length;
-    
-    // ✅ 1. ปรับตัวหารจาก 100 เป็น 40 เพื่อเพิ่มความไวของหลอดเสียง (พูดเบาๆ หลอดก็ขยับ)
-    const volumePercent = Math.min(100, Math.round((average / 40) * 100));
+    // แปลงความดังให้เป็นเปอร์เซ็นต์ (ปรับแต่งตัวคูณได้ตามความไวไมค์)
+    const volumePercent = Math.min(100, Math.round((average / 100) * 100));
     
     setMicVolume(volumePercent);
-    
-    // ✅ 2. เอา if (...) ออก เพื่อให้ Loop วาดหลอดเสียงทำงานต่อเนื่องได้
-    animationFrameRef.current = requestAnimationFrame(renderVolumeMeter);
+    if (animationFrameRef.current !== null) {
+        animationFrameRef.current = requestAnimationFrame(renderVolumeMeter);
+    }
   };
 
   const stopMicrophone = () => {
@@ -181,7 +183,6 @@ export default function Broadcast() {
     }
     if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null; // ✅ 3. เคลียร์ค่าคืนเป็น null 
     }
     if (wsRef.current) {
       wsRef.current.close();
@@ -198,10 +199,8 @@ export default function Broadcast() {
     setIsLoading(true);
 
     try {
-      // 1. ขออนุญาตใช้งานไมโครโฟน
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // 2. ตั้งค่าการวาดหลอดเสียง (Visualizer)
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
       const microphone = audioContext.createMediaStreamSource(stream);
@@ -211,23 +210,20 @@ export default function Broadcast() {
       analyserRef.current = analyser;
       renderVolumeMeter(); 
 
-      // 3. เชื่อมต่อ WebSocket ไปยัง Server สตรีมมิ่ง
       const ws = new WebSocket(STREAM_WS_URL);
       wsRef.current = ws;
 
       ws.onopen = async () => {
-        // 4. เมื่อต่อ WebScoket ติด ให้เริ่มหั่นเสียงส่งไป
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
         
         mediaRecorder.ondataavailable = (e) => {
           if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data); // ยิงก้อนเสียงเข้า WebSocket ตรงๆ
+            ws.send(e.data);
           }
         };
-        mediaRecorder.start(250); // หั่นเสียงส่งทุกๆ 250ms เพื่อความเรียลไทม์
+        mediaRecorder.start(250);
 
-        // 5. ส่งคำสั่งให้เสาไฟเริ่มดึงเสียง (ผ่าน PHP)
         const nodesArray = Array.from(selectedNodes);
         const formData = new FormData();
         formData.append('nodes', JSON.stringify(nodesArray));
@@ -236,7 +232,6 @@ export default function Broadcast() {
         setIsBroadcasting(true);
         setIsLoading(false);
 
-        // 6. บันทึกประวัติการใช้งาน (Log)
         const targetNames = nodesArray.map(id => nodes.find(n => n.id === id)?.name).join(', ');
         logAction(
           currentUser?.name || 'Unknown', 
@@ -266,10 +261,7 @@ export default function Broadcast() {
   const handleStopBroadcast = async () => {
     setIsLoading(true);
     try {
-      // 1. ปิดไมค์และการเชื่อมต่อ
       stopMicrophone();
-
-      // 2. ส่งคำสั่งให้เสาไฟหยุดเล่น (ผ่าน PHP)
       const nodesArray = Array.from(selectedNodes);
       const formData = new FormData();
       formData.append('nodes', JSON.stringify(nodesArray));
@@ -283,15 +275,18 @@ export default function Broadcast() {
     }
   };
 
-  const handlePlayAlarm = async () => {
+  // ✅ เรียกฟังก์ชันนี้เมื่อกดปุ่ม "เปิดเสียงแจ้งเตือนภัย" เพื่อโชว์ Pop-up
+  const handlePlayAlarmClick = () => {
     if (selectedNodes.size === 0) {
       alert("กรุณาเลือกเสาไฟที่ต้องการแจ้งเตือนก่อนครับ");
       return;
     }
+    setShowAlarmConfirm(true); // เปิด Pop-up
+  };
 
-    const confirmAlarm = window.confirm("🚨 ยืนยันการเปิดเสียงสัญญาณเตือนภัยในพื้นที่ที่เลือก?");
-    if (!confirmAlarm) return;
-
+  // ✅ ฟังก์ชันยิง API แจ้งเตือนภัย (ทำงานเมื่อกดยืนยันใน Pop-up)
+  const executePlayAlarm = async () => {
+    setShowAlarmConfirm(false); // ปิด Pop-up
     setIsLoading(true);
     try {
       const nodesArray = Array.from(selectedNodes);
@@ -301,7 +296,7 @@ export default function Broadcast() {
           const formData = new URLSearchParams();
           formData.append('node_id', targetNode.id);
           formData.append('ip', (targetNode as any).ip_address); 
-          formData.append('file', 'alarm007.mp3'); // ✅ อัปเดตชื่อไฟล์เป็น alarm007.mp3
+          formData.append('file', 'alarm007.mp3'); 
 
           await fetch(`${API_URL}/play_audio.php`, {
             method: 'POST',
@@ -354,7 +349,6 @@ export default function Broadcast() {
     }
   };
 
-  // เช็คเรื่องความปลอดภัยสำหรับการแจ้งเตือน HTTP
   const isSecure = window.isSecureContext;
   const currentUrl = window.location.origin;
 
@@ -435,7 +429,7 @@ export default function Broadcast() {
           md:max-h-none md:p-6 md:opacity-100
         `}>
           
-          {/* กล่องแจ้งเตือน HTTP (จะซ่อนตัวเองถ้าเป็น HTTPS) */}
+          {/* กล่องแจ้งเตือน HTTP */}
           {!isSecure && (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm mb-1">
               <div className="flex gap-3">
@@ -545,7 +539,7 @@ export default function Broadcast() {
 
             {!isAlarmPlaying ? (
               <button 
-                onClick={handlePlayAlarm}
+                onClick={handlePlayAlarmClick} // ✅ เปลี่ยนมาเรียกฟังก์ชันเปิด Pop-up แทน
                 disabled={isLoading || isBroadcasting || selectedNodes.size === 0}
                 className="w-full bg-white border-2 border-red-500 text-red-500 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all shadow-sm disabled:border-gray-200 disabled:text-gray-400 disabled:bg-gray-50"
               >
@@ -564,6 +558,39 @@ export default function Broadcast() {
 
         </div>
       </div>
+
+      {/* ✅ เพิ่ม Pop-up Modal ยืนยันเปิดเสียง Alarm ตรงนี้ */}
+      {showAlarmConfirm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-extrabold text-gray-900 mb-2">ยืนยันเปิดเสียงแจ้งเตือนภัย?</h3>
+              <p className="text-sm text-gray-500 font-medium px-2">
+                ระบบจะทำการเปิดเสียงไซเรนในพื้นที่ที่คุณเลือก ({selectedNodes.size} จุด) ทันที
+              </p>
+            </div>
+            <div className="flex border-t border-gray-100">
+              <button 
+                onClick={() => setShowAlarmConfirm(false)}
+                className="flex-1 py-4 text-sm font-bold text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <div className="w-[1px] bg-gray-100"></div>
+              <button 
+                onClick={executePlayAlarm}
+                className="flex-1 py-4 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
+              >
+                ยืนยันเปิดเสียง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

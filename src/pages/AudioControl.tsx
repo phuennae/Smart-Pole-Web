@@ -6,9 +6,9 @@ import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Tra
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useUsers } from '../context/UserContext';
 import { API_URL } from '../config';
-import { logAction } from '../logger'; // ✅ 1. Import logAction
+import { logAction } from '../logger';
 
-// --- AutoFit Component (ทำงานตอนโหลดครั้งแรก) ---
+// --- AutoFit Component ---
 function AutoFit() {
   const map = useMap();
   const { nodes } = useNodes();
@@ -128,11 +128,39 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
   const [online, setOnline] = useState(false);
   const [batteryPct, setBatteryPct] = useState<number | null>(null);
   const [files, setFiles] = useState<string[]>([]);
-  const [volume, setVolume] = useState(node.volume ?? 80); 
+  const [volume, setVolume] = useState<number>(80); 
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedFile, setSelectedFile] = useState('');
   const [showSchedule, setShowSchedule] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // ✅ เพิ่มฟังก์ชันนี้เพื่อยิงไปดึงค่าระดับเสียงล่าสุดจาก Database ทุกครั้งที่เปิด Sidebar
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLatestVolume = async () => {
+      try {
+        const res = await fetch(`${API_URL}/get_nodes.php`);
+        const data = await res.json();
+        const nodeList = Array.isArray(data) ? data : (data.data || []);
+        const currentNode = nodeList.find((n: any) => n.id.toString() === node.id.toString());
+        
+        if (isMounted && currentNode && currentNode.last_volume != null) {
+          setVolume(Number(currentNode.last_volume));
+        } else if (isMounted) {
+          // ถ้าไม่มีค่าใน DB ค่อยกลับไปใช้ 80
+          setVolume(Number((node as any).last_volume ?? node.volume ?? 80));
+        }
+      } catch (err) {
+        console.error("Fetch volume error", err);
+        if (isMounted) setVolume(80);
+      }
+    };
+
+    fetchLatestVolume();
+
+    return () => { isMounted = false; };
+  }, [node.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -204,7 +232,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
       await fetch(url, { method: 'GET' });
       setIsPlaying(true);
 
-      // ✅ 2. บันทึก Log เมื่อมีการสั่งเปิดไฟล์เพลง
       logAction(currentUser?.name || 'Unknown', `เปิดไฟล์เสียง: ${selectedFile}`, node.name);
       
     } catch (error) {
