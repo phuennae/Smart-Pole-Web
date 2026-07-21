@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import EnergyMonitor from './pages/EnergyMonitor';
 import { NodeProvider } from './context/NodeContext';
 import { UserProvider, useUsers } from './context/UserContext';
+import ActivityLogs from './pages/ActivityLogs';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { currentUser } = useUsers();
@@ -40,6 +41,7 @@ function AppContent() {
           <Route path="/add-node" element={<PrivateRoute><AddNode /></PrivateRoute>} />
           <Route path="/add-user" element={<PrivateRoute><AddUser /></PrivateRoute>} />
           <Route path="/energy-monitor/:nodeId" element={<EnergyMonitor />} />
+          <Route path="/activity-logs" element={<ActivityLogs />} />
         </Routes>
       </div>
     </div>

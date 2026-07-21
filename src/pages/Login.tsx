@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Info, User as UserIcon, Lock } from 'lucide-react';
 import { useUsers } from '../context/UserContext';
+import { logAction } from '../logger'; 
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -16,6 +17,7 @@ export default function Login() {
     const result = await login(username, password); 
     
     if (result.success) {
+      logAction(username, 'เข้าสู่ระบบ'); 
       navigate('/');
     } else {
       setError(result.message || 'Username หรือ Password ไม่ถูกต้อง');
@@ -23,11 +25,9 @@ export default function Login() {
   };
 
   return (
-    // ✅ เปลี่ยนเป็น min-h-screen บนมือถือ และ md:h-screen บนจอคอม
     <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-white font-sans">
       
       {/* ฝั่งซ้าย: โลโก้แถบสีน้ำเงิน */}
-      {/* ✅ ปล่อยให้ flex ยืดความสูงอัตโนมัติ ไม่ต้องใส่ h-full */}
       <div className="w-full md:w-[320px] bg-[#3B7BBD] flex flex-col items-center justify-center p-8 md:p-6 text-white shadow-xl z-10 shrink-0">
         <div className="w-32 h-32 md:w-56 md:h-56 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md mb-4 md:mb-8">
           <img src="/logo.png" alt="FAR FORWARD Logo" className="w-[75%] h-[75%] object-contain" />

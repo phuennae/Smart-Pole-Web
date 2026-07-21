@@ -5,6 +5,8 @@ import {
   ZoomIn, ZoomOut, VideoOff, Video
 } from 'lucide-react';
 import { API_URL } from '../config';
+import { useUsers } from '../context/UserContext'; // ✅ 1. Import useUsers
+import { logAction } from '../logger'; // ✅ 2. Import logAction
 
 interface Camera {
   id: number;
@@ -20,10 +22,19 @@ interface Camera {
 export default function CCTVMonitor() {
   const navigate = useNavigate();
   const { nodeId } = useParams(); 
+  const { currentUser } = useUsers(); // ✅ 3. ดึงข้อมูลผู้ใช้งานปัจจุบัน
   
   const [camera, setCamera] = useState<Camera | null>(null);
   const [isNodeOnline, setIsNodeOnline] = useState(true); 
   const [isLoading, setIsLoading] = useState(true);
+
+  // ✅ 4. เก็บ Log แค่ตอนเข้าดูกล้องครั้งเดียว
+  useEffect(() => {
+    if (camera && camera.name && currentUser) {
+      logAction(currentUser.name, 'ดูกล้องวงจรปิด', camera.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera?.id]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,7 +82,6 @@ export default function CCTVMonitor() {
         speed: 0.5
       };
 
-      // ✅ เปลี่ยนกลับมาใช้ API_URL ปกติ (พอร์ต 80) ตามที่ระบบควรจะเป็น
       const response = await fetch(`${API_URL}/ptz_proxy.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,6 +93,7 @@ export default function CCTVMonitor() {
       if (!result.success) {
         console.error("PTZ Command Failed:", result.error);
       }
+      // ลบส่วนที่บันทึก Log ตอนหมุนกล้องออกแล้ว
     } catch (error) {
       console.error("PTZ Control Error:", error);
     }
@@ -137,7 +148,7 @@ export default function CCTVMonitor() {
           </div>
         </div>
 
-        {/* ปุ่มควบคุม PTZ (รองรับทั้งคลิกเมาส์และทัชสกรีน) */}
+        {/* ปุ่มควบคุม PTZ */}
         <div className={`mt-10 flex flex-col items-center transition-opacity ${!isNodeOnline ? 'opacity-50 pointer-events-none' : ''}`}>
            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
              <i className="fas fa-gamepad text-[#48A0D8]"></i> ควบคุมทิศทางกล้อง

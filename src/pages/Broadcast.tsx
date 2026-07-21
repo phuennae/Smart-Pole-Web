@@ -3,6 +3,8 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Mic, Square, AlertTriangle, CheckSquare, Square as SquareOutline, Radio, ChevronUp, ChevronDown, Focus } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
+import { useUsers } from '../context/UserContext'; // ✅ 1. Import useUsers
+import { logAction } from '../logger'; // ✅ 2. Import logAction
 import 'leaflet/dist/leaflet.css';
 import { API_URL } from '../config';
 
@@ -21,7 +23,6 @@ function AutoFit() {
   return null;
 }
 
-// ✅ อัปเกรดปุ่ม Recenter: สีและขนาดกลับมาเหมือนหน้าอื่นๆ แต่ยังคงดิ้นหลบแผงควบคุมได้
 function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
   const map = useMap();
 
@@ -34,7 +35,6 @@ function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
 
   return (
     <div className="leaflet-bottom leaflet-right">
-      {/* ใช้คลาส Tailwind ประกาศิต (!) เพื่อดันหลบ UI แต่สไตล์ปุ่มเหมือนเดิมเป๊ะ */}
       <div className="leaflet-control leaflet-bar shadow-xl !mb-[110px] md:!mb-[35px] !mr-[10px]">
         <button
           onClick={handleRecenter}
@@ -51,6 +51,7 @@ function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
 
 export default function Broadcast() {
   const { nodes } = useNodes();
+  const { currentUser } = useUsers(); // ✅ 3. ดึงข้อมูล User ปัจจุบัน
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   
   const [onlineStatuses, setOnlineStatuses] = useState<Record<string, boolean>>({});
@@ -143,6 +144,15 @@ export default function Broadcast() {
       formData.append('nodes', JSON.stringify(nodesArray));
       await fetch(`${API_URL}/broadcast_live.php`, { method: 'POST', body: formData });
       setIsBroadcasting(true);
+
+      // ✅ 4. บันทึก Log การประกาศเสียงสด (หากเลือกหลายเสาเกินไป ให้แสดงจำนวนจุดแทน)
+      const targetNames = nodesArray.map(id => nodes.find(n => n.id === id)?.name).join(', ');
+      logAction(
+        currentUser?.name || 'Unknown', 
+        'เริ่มประกาศเสียงสด', 
+        targetNames.length > 60 ? `หลายพื้นที่ (${selectedNodes.size} จุด)` : targetNames
+      );
+
     } catch (error) {
       console.error("Broadcast Error:", error);
       alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
@@ -194,6 +204,15 @@ export default function Broadcast() {
         }
       }
       setIsAlarmPlaying(true); 
+
+      // ✅ 5. บันทึก Log การเปิด Alarm
+      const targetNames = nodesArray.map(id => nodes.find(n => n.id === id)?.name).join(', ');
+      logAction(
+        currentUser?.name || 'Unknown', 
+        'เปิดเสียงแจ้งเตือนภัย (Alarm)', 
+        targetNames.length > 60 ? `หลายพื้นที่ (${selectedNodes.size} จุด)` : targetNames
+      );
+
     } catch (error) {
       console.error("Error playing alarm:", error);
       alert("เกิดข้อผิดพลาดในการส่งคำสั่ง Alarm");
@@ -308,7 +327,6 @@ export default function Broadcast() {
           md:max-h-none md:p-6 md:opacity-100
         `}>
           
-          {/* Card: เลือกพื้นที่เป้าหมาย */}
           <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
             <p className="text-[11px] font-extrabold text-gray-400 tracking-widest uppercase mb-3">Target Area</p>
 
@@ -333,7 +351,6 @@ export default function Broadcast() {
             )}
           </div>
 
-          {/* Card: ประกาศเสียงสด */}
           <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
@@ -364,7 +381,6 @@ export default function Broadcast() {
             )}
           </div>
 
-          {/* Card: เสียงแจ้งเตือนภัย */}
           <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">

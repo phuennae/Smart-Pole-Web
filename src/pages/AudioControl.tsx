@@ -2,11 +2,11 @@ import 'leaflet/dist/leaflet.css';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-// ✅ 1. Import Icon ใหม่ (Focus) สำหรับทำปุ่มรีเซ็นเตอร์
 import { Clock, Play, Pause, Volume2, ChevronDown, CloudUpload, Calendar, X, Trash2, Music, BatteryCharging, Focus } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useUsers } from '../context/UserContext';
 import { API_URL } from '../config';
+import { logAction } from '../logger'; // ✅ 1. Import logAction
 
 // --- AutoFit Component (ทำงานตอนโหลดครั้งแรก) ---
 function AutoFit() {
@@ -23,24 +23,19 @@ function AutoFit() {
   return null;
 }
 
-// ✅ 2. สร้าง component สำหรับปุ่ม Recenter (ซูมกลับมาหาเสาทั้งหมด)
-// Component นี้ต้องอยู่ข้างใน MapContainer เพื่อใช้ useMap() ได้
+// --- Recenter Control ---
 function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
   const map = useMap();
 
   const handleRecenter = () => {
     if (nodes && nodes.length > 0) {
       const bounds = nodes.map(node => [node.lat, node.lng] as [number, number]);
-      // สั่งให้แผนที่ซูมกลับมายังขอบเขตของเสาทั้งหมด
-      map.fitBounds(bounds, { padding: [80, 80] }); // เพิ่ม padding เยอะหน่อยเพื่อให้ไม่ชิดขอบจอเกินไป
+      map.fitBounds(bounds, { padding: [80, 80] }); 
     }
   };
 
   return (
-    // จัดตำแหน่งให้อยู่ขวาล่าง (leaflet-bottom leaflet-right)
-    // เพิ่ม margin เพื่อไม่ให้บังป้าย Attribution ของ OpenStreetMap
     <div className="leaflet-bottom leaflet-right" style={{ marginBottom: '35px', marginRight: '10px' }}>
-      {/* ใช้ class มาตรฐานของ Leaflet เพื่อให้ได้สไตล์ปุ่มเหมือนปุ่ม + - */}
       <div className="leaflet-control leaflet-bar shadow-xl">
         <button
           onClick={handleRecenter}
@@ -58,7 +53,7 @@ function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
 // --- Types ---
 interface Schedule { id: number; days: string; time: string; file: string; volume: number; }
 
-// --- AudioPoleMarker Component (โชว์ชื่อค้างไว้เหมือนเดิม) ---
+// --- AudioPoleMarker Component ---
 function AudioPoleMarker({ 
   node, 
   isSelected, 
@@ -102,7 +97,6 @@ function AudioPoleMarker({
     ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
     : 'grayscale(100%) opacity(60%)';
 
-  // ป้ายชื่อโชว์ค้างไว้ตลอดเหมือนเดิม
   const customIcon = L.divIcon({
     className: 'custom-audio-icon',
     html: `
@@ -127,7 +121,7 @@ function AudioPoleMarker({
   );
 }
 
-// --- AudioSidebar Component (แถบควบคุมด้านขวา) ---
+// --- AudioSidebar Component ---
 function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }) {
   const { currentUser } = useUsers();
   
@@ -175,7 +169,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
                 if (isMounted) setFiles([]);
               }
             } catch (fileErr) {
-              console.error("Error fetching files:", fileErr);
               if (isMounted) setFiles([]); 
             }
           } else {
@@ -185,7 +178,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
           setOnline(false);
         }
       } catch (err) {
-        console.error("Status check error:", err);
         if (isMounted) setOnline(false);
       }
     };
@@ -211,6 +203,10 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
       const url = `${API_URL}/process_broadcast.php?action=play_single&ip=${node.ip}&port=${node.port}&file=${encodeURIComponent(filePath)}`;
       await fetch(url, { method: 'GET' });
       setIsPlaying(true);
+
+      // ✅ 2. บันทึก Log เมื่อมีการสั่งเปิดไฟล์เพลง
+      logAction(currentUser?.name || 'Unknown', `เปิดไฟล์เสียง: ${selectedFile}`, node.name);
+      
     } catch (error) {
       console.error("Play error:", error);
       alert('เกิดข้อผิดพลาดในการสั่งเล่นเพลง');
@@ -434,7 +430,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
   );
 }
 
-// --- Main Page Component ---
 export default function AudioControl() {
   const { nodes } = useNodes();
   const [selectedNode, setSelectedNode] = useState<NodeItem | null>(null);
@@ -442,13 +437,10 @@ export default function AudioControl() {
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden">
       
-      {/* ฝั่งซ้าย: แผนที่ระบบ */}
       <div className="flex-1 h-full relative z-0">
         <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
           <AutoFit />
-          
-          {/* ✅ 3. นำปุ่ม Recenter Control มาวางข้างใน MapContainer */}
           <RecenterControl nodes={nodes} />
 
           {nodes.map((node) => (
@@ -462,14 +454,12 @@ export default function AudioControl() {
         </MapContainer>
       </div>
 
-      {/* ฝั่งขวา: Sidebar ควบคุมเสียง */}
       {selectedNode && (
         <AudioSidebar 
           node={selectedNode} 
           onClose={() => setSelectedNode(null)} 
         />
       )}
-
     </main>
   );
 }
