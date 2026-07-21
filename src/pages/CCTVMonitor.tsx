@@ -5,9 +5,10 @@ import {
   ZoomIn, ZoomOut, VideoOff, Video
 } from 'lucide-react';
 import { API_URL } from '../config';
-import { useUsers } from '../context/UserContext'; // ✅ 1. Import useUsers
-import { logAction } from '../logger'; // ✅ 2. Import logAction
+import { useUsers } from '../context/UserContext';
+import { logAction } from '../logger';
 
+// ✅ 1. กลับมาใช้ interface เดิมเป๊ะๆ ตามที่ API ส่งมา (name และ ip)
 interface Camera {
   id: number;
   name: string;
@@ -22,13 +23,13 @@ interface Camera {
 export default function CCTVMonitor() {
   const navigate = useNavigate();
   const { nodeId } = useParams(); 
-  const { currentUser } = useUsers(); // ✅ 3. ดึงข้อมูลผู้ใช้งานปัจจุบัน
+  const { currentUser } = useUsers();
   
   const [camera, setCamera] = useState<Camera | null>(null);
   const [isNodeOnline, setIsNodeOnline] = useState(true); 
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ 4. เก็บ Log แค่ตอนเข้าดูกล้องครั้งเดียว
+  // ✅ 2. เก็บ Log ตอนกดดูกล้อง
   useEffect(() => {
     if (camera && camera.name && currentUser) {
       logAction(currentUser.name, 'ดูกล้องวงจรปิด', camera.name);
@@ -39,15 +40,20 @@ export default function CCTVMonitor() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. ดึงข้อมูลตัวกล้อง
         const camRes = await fetch(`${API_URL}/get_cameras.php`);
         const camData = await camRes.json();
-        if (camData.status === 'success') {
-          const found = camData.data.find((c: Camera) => c.id.toString() === nodeId);
-          setCamera(found || null);
+        
+        // ✅ 3. ป้องกัน API ส่งข้อมูลมาผิดรูปแบบ (รองรับทั้ง Array ตรงๆ และแบบ {data: [...]})
+        let cameraList: Camera[] = [];
+        if (Array.isArray(camData)) {
+          cameraList = camData;
+        } else if (camData && Array.isArray(camData.data)) {
+          cameraList = camData.data;
         }
 
-        // 2. ดึงข้อมูลสถานะ Online/Offline ของเสา
+        const found = cameraList.find((c: Camera) => c.id.toString() === String(nodeId));
+        setCamera(found || null);
+
         const statusRes = await fetch(`${API_URL}/get_node_status.php?id=${nodeId}`);
         const statusData = await statusRes.json();
         if (statusData.status === 'success') {
@@ -93,7 +99,6 @@ export default function CCTVMonitor() {
       if (!result.success) {
         console.error("PTZ Command Failed:", result.error);
       }
-      // ลบส่วนที่บันทึก Log ตอนหมุนกล้องออกแล้ว
     } catch (error) {
       console.error("PTZ Control Error:", error);
     }
@@ -128,14 +133,13 @@ export default function CCTVMonitor() {
 
           <div className="w-full h-[400px] bg-black relative flex items-center justify-center border-b border-gray-200">
             
-            {/* เช็คเงื่อนไขโชว์ภาพวิดีโอ */}
             {!isNodeOnline ? (
               <div className="text-center text-white flex flex-col items-center">
                 <VideoOff size={48} className="text-red-500 mb-3" />
                 <p className="font-bold text-xl">ไม่พบภาพ</p>
                 <p className="text-gray-400 text-sm mt-1">สถานีนี้กำลังขาดการติดต่อ (Offline)</p>
               </div>
-            ) : camera.ip.includes('rtsp://') ? (
+            ) : camera.ip && camera.ip.includes('rtsp://') ? (
               <div className="text-center text-white">
                 <Video size={48} className="mx-auto mb-3 text-gray-600" />
                 <p className="font-bold">ระบบ RTSP</p>
@@ -148,7 +152,6 @@ export default function CCTVMonitor() {
           </div>
         </div>
 
-        {/* ปุ่มควบคุม PTZ */}
         <div className={`mt-10 flex flex-col items-center transition-opacity ${!isNodeOnline ? 'opacity-50 pointer-events-none' : ''}`}>
            <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
              <i className="fas fa-gamepad text-[#48A0D8]"></i> ควบคุมทิศทางกล้อง
