@@ -52,7 +52,8 @@ export default function App() {
   return (
     <NodeProvider>
       <UserProvider>
-        <BrowserRouter>
+        {/* เติม basename="/newui" ตรงนี้ เพื่อบอกให้ React Router รู้ว่าเราอยู่ใน Subfolder */}
+        <BrowserRouter basename="/newui">
           <AppContent />
         </BrowserRouter>
       </UserProvider>

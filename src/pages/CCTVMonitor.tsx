@@ -8,7 +8,6 @@ import { API_URL } from '../config';
 import { useUsers } from '../context/UserContext';
 import { logAction } from '../logger';
 
-// ✅ 1. กลับมาใช้ interface เดิมเป๊ะๆ ตามที่ API ส่งมา (name และ ip)
 interface Camera {
   id: number;
   name: string;
@@ -29,7 +28,6 @@ export default function CCTVMonitor() {
   const [isNodeOnline, setIsNodeOnline] = useState(true); 
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ 2. เก็บ Log ตอนกดดูกล้อง
   useEffect(() => {
     if (camera && camera.name && currentUser) {
       logAction(currentUser.name, 'ดูกล้องวงจรปิด', camera.name);
@@ -43,7 +41,6 @@ export default function CCTVMonitor() {
         const camRes = await fetch(`${API_URL}/get_cameras.php`);
         const camData = await camRes.json();
         
-        // ✅ 3. ป้องกัน API ส่งข้อมูลมาผิดรูปแบบ (รองรับทั้ง Array ตรงๆ และแบบ {data: [...]})
         let cameraList: Camera[] = [];
         if (Array.isArray(camData)) {
           cameraList = camData;
@@ -51,7 +48,13 @@ export default function CCTVMonitor() {
           cameraList = camData.data;
         }
 
-        const found = cameraList.find((c: Camera) => c.id.toString() === String(nodeId));
+        const idMapping: { [key: string]: string } = {
+          "8": "7", 
+        };
+
+        const targetCamId = idMapping[String(nodeId)] || String(nodeId);
+
+        const found = cameraList.find((c: Camera) => c.id.toString() === targetCamId);
         setCamera(found || null);
 
         const statusRes = await fetch(`${API_URL}/get_node_status.php?id=${nodeId}`);
@@ -104,6 +107,14 @@ export default function CCTVMonitor() {
     }
   };
 
+  const getSafeStreamUrl = (url: string) => {
+    if (!url) return '';
+    if (window.location.hostname === '192.168.88.254' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
+      return url.replace('171.99.250.125', window.location.hostname);
+    }
+    return url;
+  };
+
   if (isLoading) return <div className="flex-1 h-screen flex items-center justify-center font-bold text-gray-500 animate-pulse">กำลังโหลดข้อมูลกล้อง...</div>;
   if (!camera) return <div className="flex-1 h-screen flex items-center justify-center font-bold text-red-500">ไม่พบข้อมูลกล้องในระบบ</div>;
 
@@ -146,7 +157,7 @@ export default function CCTVMonitor() {
                 <p className="text-sm text-gray-400">กำลังรอการเชื่อมต่อ Streaming Server</p>
               </div>
             ) : (
-              <iframe src={camera.ip} className="w-full h-full border-0" allowFullScreen></iframe>
+              <iframe src={getSafeStreamUrl(camera.ip)} className="w-full h-full border-0" allowFullScreen></iframe>
             )}
 
           </div>

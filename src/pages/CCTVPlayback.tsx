@@ -3,8 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Search, Play, Square, Clock, Pause, Settings2 } from 'lucide-react';
 import { API_URL } from '../config';
 
-// const WS_URL = 'ws://171.99.250.125:8080';
-const WS_URL = 'ws://localhost:8080';
+const WS_URL = `ws://${window.location.hostname}:8080`;
+// const WS_URL = 'ws://localhost:8080';
 
 interface Recording {
   id: string;
