@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Play, Square, Clock, Pause, Settings2 } from 'lucide-react';
+import { ArrowLeft, Search, Play, Square, Clock, Pause, Settings2, AlertCircle } from 'lucide-react';
 import { API_URL } from '../config';
 
 const WS_URL = `ws://${window.location.hostname}:8080`;
@@ -22,7 +22,11 @@ export default function CCTVPlayback() {
   const [isLoading, setIsLoading] = useState(false);
   
   const [isPlaying, setIsPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1.0); // ✅ นำ speed กลับมาใช้
+  const [speed, setSpeed] = useState(1.0);
+  
+  // State สำหรับ Popup
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<any>(null);
@@ -38,6 +42,14 @@ export default function CCTVPlayback() {
       if (playerRef.current) playerRef.current.destroy();
     };
   }, []);
+
+  const showNotification = (message: string) => {
+    setPopupMessage(message);
+    setShowPopup(true);
+    setTimeout(() => {
+      setShowPopup(false);
+    }, 3000);
+  };
 
   const handleSearch = async () => {
     setIsLoading(true);
@@ -58,10 +70,12 @@ export default function CCTVPlayback() {
         setSelectedSegment(null);
         stopPlayback();
       } else {
-        alert('ไม่พบข้อมูลบันทึกในวันที่เลือก');
+        // เปลี่ยนจาก alert() เป็น Popup ของเราเอง
+        showNotification('ไม่พบข้อมูลบันทึกวิดีโอในวันที่เลือก');
       }
     } catch (error) {
       console.error("Search Error:", error);
+      showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อระบบ');
     } finally {
       setIsLoading(false);
     }
@@ -103,12 +117,10 @@ export default function CCTVPlayback() {
     setIsPlaying(!isPlaying);
   };
 
-  // ✅ ฟังก์ชันปรับความเร็ว (อิงตาม logic ต้นฉบับ)
   const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newSpeed = Number(e.target.value);
     setSpeed(newSpeed);
 
-    // JSMpeg ไม่มีเมธอดเปลี่ยนความเร็ว ต้องทำลายทิ้งแล้วสร้างใหม่
     if (playerRef.current && selectedSegment && canvasRef.current) {
       const wasPlaying = isPlaying;
       playerRef.current.destroy();
@@ -121,7 +133,6 @@ export default function CCTVPlayback() {
         audio: true
       });
 
-      // ถ้าเดิมทีวิดีโอหยุดอยู่ ให้รอเชื่อมต่อเสร็จแล้วหยุดภาพไว้
       if (!wasPlaying) {
         setTimeout(() => {
           if (playerRef.current) playerRef.current.pause();
@@ -146,7 +157,19 @@ export default function CCTVPlayback() {
   };
 
   return (
-    <main className="p-6 bg-gray-100 min-h-screen font-sans">
+    <main className="p-6 bg-gray-100 min-h-screen font-sans relative">
+      {/* 🚀 Minimal Popup Notification */}
+      <div 
+        className={`fixed top-8 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-in-out ${
+          showPopup ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
+        }`}
+      >
+        <div className="bg-white/95 backdrop-blur-md shadow-xl border border-orange-100 px-6 py-3 rounded-full flex items-center gap-3">
+          <AlertCircle className="text-orange-500" size={20} />
+          <span className="font-bold text-gray-700">{popupMessage}</span>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto">
         <button 
           onClick={() => navigate(`/cctv-monitor/${nodeId}`)} 
@@ -168,7 +191,7 @@ export default function CCTVPlayback() {
                   className="w-full p-3 bg-gray-50 rounded-xl border-0 outline-none focus:ring-2 focus:ring-[#48A0D8]" 
                 />
               </div>
-              <button onClick={handleSearch} disabled={isLoading} className="w-full bg-[#48A0D8] text-white p-3 rounded-xl font-bold hover:bg-blue-600 transition-all disabled:opacity-50">
+              <button onClick={handleSearch} disabled={isLoading} className="w-full bg-[#48A0D8] text-white p-3 rounded-xl font-bold hover:bg-blue-600 transition-all disabled:opacity-50 active:scale-95">
                 {isLoading ? 'กำลังค้นหา...' : 'ค้นหาบันทึก'}
               </button>
             </div>
@@ -221,7 +244,6 @@ export default function CCTVPlayback() {
                   <Square size={24} fill="currentColor" />
                 </button>
 
-                {/* ✅ ตัวเลือกความเร็ว นำกลับมาใส่ตรงนี้ */}
                 <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-xl border border-gray-200">
                   <Settings2 size={18} className="text-gray-500" />
                   <select 

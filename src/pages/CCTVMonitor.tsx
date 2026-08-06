@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
-  ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square,
-  ZoomIn, ZoomOut, VideoOff, Video
+  ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square, VideoOff, Video
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useUsers } from '../context/UserContext';
@@ -77,7 +76,8 @@ export default function CCTVMonitor() {
     return () => clearInterval(interval);
   }, [nodeId]);
 
-  const handlePTZ = async (command: string) => {
+  // ครอบด้วย useCallback เพื่อใช้ใน Event Listener ของ Keyboard
+  const handlePTZ = useCallback(async (command: string) => {
     if (!camera || !camera.ptz_ip || !isNodeOnline) return;
     
     try {
@@ -105,7 +105,42 @@ export default function CCTVMonitor() {
     } catch (error) {
       console.error("PTZ Control Error:", error);
     }
-  };
+  }, [camera, isNodeOnline]);
+
+  // เพิ่มระบบควบคุมผ่านปุ่มลูกศรบนคีย์บอร์ด
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return; // ป้องกันการยิง API รัวๆ เมื่อกดปุ่มค้าง
+      
+      switch (e.key) {
+        case 'ArrowUp': handlePTZ('up'); break;
+        case 'ArrowDown': handlePTZ('down'); break;
+        case 'ArrowLeft': handlePTZ('left'); break;
+        case 'ArrowRight': handlePTZ('right'); break;
+        default: break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'ArrowUp':
+        case 'ArrowDown':
+        case 'ArrowLeft':
+        case 'ArrowRight':
+          handlePTZ('stop'); // สั่งหยุดเมื่อปล่อยปุ่ม
+          break;
+        default: break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [handlePTZ]);
 
   const getSafeStreamUrl = (url: string) => {
     if (!url) return '';
@@ -223,30 +258,6 @@ export default function CCTVMonitor() {
                 <ArrowDown size={28} />
               </button>
               <div></div>
-           </div>
-
-           <div className="flex gap-4">
-              <button 
-                onMouseDown={() => handlePTZ('zoomin')} 
-                onMouseUp={() => handlePTZ('stop')}
-                onMouseLeave={() => handlePTZ('stop')}
-                onTouchStart={() => handlePTZ('zoomin')}
-                onTouchEnd={() => handlePTZ('stop')}
-                className="bg-gray-700 py-3 px-6 rounded-xl font-bold text-white hover:bg-gray-800 transition-all flex items-center gap-2 shadow-md active:scale-95"
-              >
-                <ZoomIn size={18}/> ซูมเข้า
-              </button>
-              
-              <button 
-                onMouseDown={() => handlePTZ('zoomout')} 
-                onMouseUp={() => handlePTZ('stop')}
-                onMouseLeave={() => handlePTZ('stop')}
-                onTouchStart={() => handlePTZ('zoomout')}
-                onTouchEnd={() => handlePTZ('stop')}
-                className="bg-gray-700 py-3 px-6 rounded-xl font-bold text-white hover:bg-gray-800 transition-all flex items-center gap-2 shadow-md active:scale-95"
-              >
-                <ZoomOut size={18}/> ซูมออก
-              </button>
            </div>
         </div>
       </div>

@@ -52,7 +52,7 @@ export default function App() {
   return (
     <NodeProvider>
       <UserProvider>
-        <BrowserRouter basename="/smartpoleweb">
+        <BrowserRouter>
           <AppContent />
         </BrowserRouter>
       </UserProvider>

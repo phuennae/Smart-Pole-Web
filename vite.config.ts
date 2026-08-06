@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/smartpoleweb/', // ระบุชื่อโฟลเดอร์ให้ตรงกันตรงนี้ครับ
+  base: '/', // 👉 เปลี่ยนตรงนี้เป็น '/' ตัวเดียวครับ
   plugins: [
     react(),
     tailwindcss(),
