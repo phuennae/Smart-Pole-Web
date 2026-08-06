@@ -160,41 +160,41 @@ export default function EnergyMonitor() {
 
   return (
     <div className="min-h-screen bg-[#0b0f19] text-[#e5e7eb] font-sans flex flex-col">
-      {/* Header */}
-      <header className="px-6 py-4 bg-[#111827] flex items-center justify-between shadow-md">
-        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-gray-400 hover:text-white font-bold transition-colors">
+      {/* Header - ปรับให้ Responsive */}
+      <header className="px-4 py-4 md:px-6 bg-[#111827] flex flex-col md:flex-row items-start md:items-center justify-between shadow-md gap-3 md:gap-0">
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-gray-400 hover:text-white font-bold transition-colors w-full md:w-auto">
           <ArrowLeft size={20} /> กลับหน้าหลัก
         </button>
-        <div className="font-bold text-xl text-center flex-1 tracking-wide flex items-center justify-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
-          ⚡ Energy Dashboard : {nodeName}
+        <div className="font-bold text-lg md:text-xl text-center flex-1 tracking-wide flex items-center justify-start md:justify-center gap-2 w-full">
+          <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse shrink-0"></span>
+          <span className="truncate">⚡ Energy Dashboard : {nodeName}</span>
         </div>
-        <div className="w-28"></div>
+        <div className="hidden md:block w-28"></div>
       </header>
 
-      <div className="p-6 flex-1 flex flex-col max-w-7xl mx-auto w-full">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-4 gap-6 mb-6">
-          <div className="bg-[#111827] py-6 px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative overflow-hidden">
-            <h3 className="text-gray-400 text-sm font-bold mb-2">Voltage</h3>
-            <h1 className="text-4xl font-black text-[#22c55e]">{kpi.v} <span className="text-xl text-gray-500">V</span></h1>
+      <div className="p-4 md:p-6 flex-1 flex flex-col max-w-7xl mx-auto w-full overflow-hidden">
+        {/* KPI Cards - แบ่งเป็น 2 คอลัมน์บนมือถือ */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
+          <div className="bg-[#111827] py-4 md:py-6 px-2 md:px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative flex flex-col justify-center">
+            <h3 className="text-gray-400 text-xs md:text-sm font-bold mb-1 md:mb-2">Voltage</h3>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#22c55e] break-words">{kpi.v} <span className="text-sm md:text-xl text-gray-500">V</span></h1>
           </div>
-          <div className="bg-[#111827] py-6 px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative overflow-hidden">
-            <h3 className="text-gray-400 text-sm font-bold mb-2">Current</h3>
-            <h1 className="text-4xl font-black text-[#3b82f6]">{kpi.c} <span className="text-xl text-gray-500">A</span></h1>
+          <div className="bg-[#111827] py-4 md:py-6 px-2 md:px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative flex flex-col justify-center">
+            <h3 className="text-gray-400 text-xs md:text-sm font-bold mb-1 md:mb-2">Current</h3>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#3b82f6] break-words">{kpi.c} <span className="text-sm md:text-xl text-gray-500">A</span></h1>
           </div>
-          <div className="bg-[#111827] py-6 px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative overflow-hidden">
-            <h3 className="text-gray-400 text-sm font-bold mb-2">Power</h3>
-            <h1 className="text-4xl font-black text-[#f59e0b]">{kpi.p} <span className="text-xl text-gray-500">W</span></h1>
+          <div className="bg-[#111827] py-4 md:py-6 px-2 md:px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative flex flex-col justify-center">
+            <h3 className="text-gray-400 text-xs md:text-sm font-bold mb-1 md:mb-2">Power</h3>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#f59e0b] break-words">{kpi.p} <span className="text-sm md:text-xl text-gray-500">W</span></h1>
           </div>
-          <div className="bg-[#111827] py-6 px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative overflow-hidden">
-            <h3 className="text-gray-400 text-sm font-bold mb-2">Energy</h3>
-            <h1 className="text-4xl font-black text-[#ef4444]">{kpi.e} <span className="text-xl text-gray-500">Wh</span></h1>
+          <div className="bg-[#111827] py-4 md:py-6 px-2 md:px-4 rounded-2xl text-center shadow-lg border border-gray-800 relative flex flex-col justify-center">
+            <h3 className="text-gray-400 text-xs md:text-sm font-bold mb-1 md:mb-2">Energy</h3>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#ef4444] break-words">{kpi.e} <span className="text-sm md:text-xl text-gray-500">Wh</span></h1>
           </div>
         </div>
 
-        {/* กราฟ Chart.js */}
-        <div className="bg-[#111827] rounded-2xl p-6 shadow-lg border border-gray-800 flex-1 relative min-h-[450px]">
+        {/* กราฟ Chart.js - ปรับความสูงขั้นต่ำตามขนาดจอ */}
+        <div className="bg-[#111827] rounded-2xl p-4 md:p-6 shadow-lg border border-gray-800 flex-1 relative min-h-[300px] md:min-h-[450px]">
           <canvas ref={chartRef}></canvas>
         </div>
       </div>

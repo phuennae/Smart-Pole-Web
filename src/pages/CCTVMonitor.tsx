@@ -76,7 +76,6 @@ export default function CCTVMonitor() {
     return () => clearInterval(interval);
   }, [nodeId]);
 
-  // ครอบด้วย useCallback เพื่อใช้ใน Event Listener ของ Keyboard
   const handlePTZ = useCallback(async (command: string) => {
     if (!camera || !camera.ptz_ip || !isNodeOnline) return;
     
@@ -107,10 +106,9 @@ export default function CCTVMonitor() {
     }
   }, [camera, isNodeOnline]);
 
-  // เพิ่มระบบควบคุมผ่านปุ่มลูกศรบนคีย์บอร์ด
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat) return; // ป้องกันการยิง API รัวๆ เมื่อกดปุ่มค้าง
+      if (e.repeat) return; 
       
       switch (e.key) {
         case 'ArrowUp': handlePTZ('up'); break;
@@ -127,7 +125,7 @@ export default function CCTVMonitor() {
         case 'ArrowDown':
         case 'ArrowLeft':
         case 'ArrowRight':
-          handlePTZ('stop'); // สั่งหยุดเมื่อปล่อยปุ่ม
+          handlePTZ('stop'); 
           break;
         default: break;
       }
@@ -154,111 +152,119 @@ export default function CCTVMonitor() {
   if (!camera) return <div className="flex-1 h-screen flex items-center justify-center font-bold text-red-500">ไม่พบข้อมูลกล้องในระบบ</div>;
 
   return (
-    <main className="p-6 bg-gray-100 min-h-screen font-sans">
-      <div className="max-w-5xl mx-auto">
+    // บังคับความสูงเต็มหน้าจอและซ่อนการ Scroll
+    <main className="p-4 md:p-6 bg-gray-100 h-[calc(100vh-60px)] md:h-screen font-sans flex flex-col overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col min-h-0">
+        
         <button 
           onClick={() => navigate('/cctv')} 
-          className="flex items-center gap-2 font-bold text-gray-600 mb-4 hover:text-black transition-colors"
+          className="flex items-center gap-2 font-bold text-gray-600 mb-3 md:mb-4 hover:text-black transition-colors w-fit shrink-0"
         >
           <ArrowLeft size={20} /> กลับ
         </button>
 
-        <div className="bg-white rounded-[32px] shadow-xl overflow-hidden border border-gray-100">
-          <div className={`${isNodeOnline ? 'bg-[#48A0D8]' : 'bg-gray-600'} p-5 flex justify-between items-center text-white transition-colors`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${isNodeOnline ? 'bg-[#76E136] animate-pulse shadow-[0_0_8px_rgba(118,225,54,0.8)]' : 'bg-red-500'}`} />
-              <h2 className="text-xl font-bold">{camera.name}</h2>
+        {/* แบ่งเลย์เอาต์: มือถือเรียงบนล่าง / คอมเรียงซ้ายขวา */}
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6 flex-1 min-h-0">
+          
+          {/* 1. กล่องวิดีโอ (กินพื้นที่ที่เหลือทั้งหมด) */}
+          <div className="flex-1 lg:flex-[2.5] bg-white rounded-2xl md:rounded-[32px] shadow-xl overflow-hidden border border-gray-100 flex flex-col min-h-0">
+            <div className={`${isNodeOnline ? 'bg-[#48A0D8]' : 'bg-gray-600'} p-3 md:p-5 flex justify-between items-center text-white transition-colors shrink-0`}>
+              <div className="flex items-center gap-2 md:gap-3 truncate pr-2">
+                <div className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 ${isNodeOnline ? 'bg-[#76E136] animate-pulse shadow-[0_0_8px_rgba(118,225,54,0.8)]' : 'bg-red-500'}`} />
+                <h2 className="text-sm md:text-xl font-bold truncate">{camera.name}</h2>
+              </div>
+              <button 
+                onClick={() => navigate(`/cctv-playback/${nodeId}`)}
+                className="bg-white/20 px-3 md:px-4 py-1.5 rounded-xl text-[10px] md:text-xs font-bold hover:bg-white/30 transition-all cursor-pointer flex-shrink-0 active:scale-95 touch-manipulation select-none"
+              >
+                Playback / ดูภาพย้อนหลัง
+              </button>
             </div>
-            <button 
-              onClick={() => navigate(`/cctv-playback/${nodeId}`)}
-              className="bg-white/20 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-white/30 transition-all cursor-pointer"
-            >
-              Playback / ดูภาพย้อนหลัง
-            </button>
+
+            {/* กล่องใส่ Iframe ที่จะขยายเต็มพื้นที่ ลบขอบดำทิ้ง */}
+            <div className="w-full flex-1 relative bg-[#0b0f19] flex items-center justify-center min-h-[200px]">
+              {!isNodeOnline ? (
+                <div className="text-center text-white flex flex-col items-center">
+                  <VideoOff size={36} className="text-red-500 mb-2 md:mb-3 md:w-12 md:h-12" />
+                  <p className="font-bold text-base md:text-xl">ไม่พบภาพ</p>
+                  <p className="text-gray-400 text-xs md:text-sm mt-1">สถานีนี้กำลังขาดการติดต่อ (Offline)</p>
+                </div>
+              ) : camera.ip && camera.ip.includes('rtsp://') ? (
+                <div className="text-center text-white">
+                  <Video size={36} className="mx-auto mb-2 md:mb-3 text-gray-600 md:w-12 md:h-12" />
+                  <p className="font-bold text-sm md:text-base">ระบบ RTSP</p>
+                  <p className="text-xs md:text-sm text-gray-400">กำลังรอการเชื่อมต่อ Streaming Server</p>
+                </div>
+              ) : (
+                <iframe src={getSafeStreamUrl(camera.ip)} className="w-full h-full absolute inset-0 border-0" allowFullScreen></iframe>
+              )}
+            </div>
           </div>
 
-          <div className="w-full h-[400px] bg-black relative flex items-center justify-center border-b border-gray-200">
-            
-            {!isNodeOnline ? (
-              <div className="text-center text-white flex flex-col items-center">
-                <VideoOff size={48} className="text-red-500 mb-3" />
-                <p className="font-bold text-xl">ไม่พบภาพ</p>
-                <p className="text-gray-400 text-sm mt-1">สถานีนี้กำลังขาดการติดต่อ (Offline)</p>
-              </div>
-            ) : camera.ip && camera.ip.includes('rtsp://') ? (
-              <div className="text-center text-white">
-                <Video size={48} className="mx-auto mb-3 text-gray-600" />
-                <p className="font-bold">ระบบ RTSP</p>
-                <p className="text-sm text-gray-400">กำลังรอการเชื่อมต่อ Streaming Server</p>
-              </div>
-            ) : (
-              <iframe src={getSafeStreamUrl(camera.ip)} className="w-full h-full border-0" allowFullScreen></iframe>
-            )}
-
+          {/* 2. กล่องควบคุม PTZ (Fix ความกว้างบนจอคอม) */}
+          <div className={`w-full lg:w-[340px] shrink-0 bg-white rounded-2xl md:rounded-[32px] shadow-xl border border-gray-100 p-4 md:p-6 flex flex-col justify-center items-center transition-opacity ${!isNodeOnline ? 'opacity-50 pointer-events-none' : ''}`}>
+             <h4 className="font-bold text-gray-700 mb-4 md:mb-6 flex items-center gap-2 text-sm md:text-base">
+               <i className="fas fa-gamepad text-[#48A0D8]"></i> ควบคุมทิศทางกล้อง
+             </h4>
+             
+             <div className="grid grid-cols-3 gap-2 md:gap-3">
+                <div></div>
+                <button 
+                  onMouseDown={() => handlePTZ('up')} 
+                  onMouseUp={() => handlePTZ('stop')}
+                  onMouseLeave={() => handlePTZ('stop')}
+                  onTouchStart={() => handlePTZ('up')}
+                  onTouchEnd={() => handlePTZ('stop')}
+                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                >
+                  <ArrowUp size={24} className="md:w-7 md:h-7" />
+                </button>
+                <div></div>
+                
+                <button 
+                  onMouseDown={() => handlePTZ('left')} 
+                  onMouseUp={() => handlePTZ('stop')}
+                  onMouseLeave={() => handlePTZ('stop')}
+                  onTouchStart={() => handlePTZ('left')}
+                  onTouchEnd={() => handlePTZ('stop')}
+                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                >
+                  <ArrowLeftIcon size={24} className="md:w-7 md:h-7" />
+                </button>
+                
+                <button 
+                  onClick={() => handlePTZ('stop')} 
+                  className="bg-red-600 p-5 rounded-xl md:rounded-2xl text-white hover:bg-red-700 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                >
+                  <Square size={24} className="md:w-7 md:h-7" />
+                </button>
+                
+                <button 
+                  onMouseDown={() => handlePTZ('right')} 
+                  onMouseUp={() => handlePTZ('stop')}
+                  onMouseLeave={() => handlePTZ('stop')}
+                  onTouchStart={() => handlePTZ('right')}
+                  onTouchEnd={() => handlePTZ('stop')}
+                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                >
+                  <ArrowRight size={24} className="md:w-7 md:h-7" />
+                </button>
+                
+                <div></div>
+                <button 
+                  onMouseDown={() => handlePTZ('down')} 
+                  onMouseUp={() => handlePTZ('stop')}
+                  onMouseLeave={() => handlePTZ('stop')}
+                  onTouchStart={() => handlePTZ('down')}
+                  onTouchEnd={() => handlePTZ('stop')}
+                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                >
+                  <ArrowDown size={24} className="md:w-7 md:h-7" />
+                </button>
+                <div></div>
+             </div>
           </div>
-        </div>
 
-        <div className={`mt-10 flex flex-col items-center transition-opacity ${!isNodeOnline ? 'opacity-50 pointer-events-none' : ''}`}>
-           <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
-             <i className="fas fa-gamepad text-[#48A0D8]"></i> ควบคุมทิศทางกล้อง
-           </h4>
-           
-           <div className="grid grid-cols-3 gap-3 mb-3">
-              <div></div>
-              <button 
-                onMouseDown={() => handlePTZ('up')} 
-                onMouseUp={() => handlePTZ('stop')}
-                onMouseLeave={() => handlePTZ('stop')}
-                onTouchStart={() => handlePTZ('up')}
-                onTouchEnd={() => handlePTZ('stop')}
-                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
-              >
-                <ArrowUp size={28} />
-              </button>
-              <div></div>
-              
-              <button 
-                onMouseDown={() => handlePTZ('left')} 
-                onMouseUp={() => handlePTZ('stop')}
-                onMouseLeave={() => handlePTZ('stop')}
-                onTouchStart={() => handlePTZ('left')}
-                onTouchEnd={() => handlePTZ('stop')}
-                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
-              >
-                <ArrowLeftIcon size={28} />
-              </button>
-              
-              <button 
-                onClick={() => handlePTZ('stop')} 
-                className="bg-red-600 p-5 rounded-2xl text-white hover:bg-red-700 shadow-lg transition-all active:scale-95"
-              >
-                <Square size={28} />
-              </button>
-              
-              <button 
-                onMouseDown={() => handlePTZ('right')} 
-                onMouseUp={() => handlePTZ('stop')}
-                onMouseLeave={() => handlePTZ('stop')}
-                onTouchStart={() => handlePTZ('right')}
-                onTouchEnd={() => handlePTZ('stop')}
-                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
-              >
-                <ArrowRight size={28} />
-              </button>
-              
-              <div></div>
-              <button 
-                onMouseDown={() => handlePTZ('down')} 
-                onMouseUp={() => handlePTZ('stop')}
-                onMouseLeave={() => handlePTZ('stop')}
-                onTouchStart={() => handlePTZ('down')}
-                onTouchEnd={() => handlePTZ('stop')}
-                className="bg-[#48A0D8] p-5 rounded-2xl text-white hover:bg-blue-600 shadow-lg transition-all active:scale-95"
-              >
-                <ArrowDown size={28} />
-              </button>
-              <div></div>
-           </div>
         </div>
       </div>
     </main>

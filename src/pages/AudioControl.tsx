@@ -305,7 +305,8 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
 
   return (
     <>
-      <div className="w-[360px] shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-10 relative transition-all duration-300">
+      {/* แก้ไขให้ Sidebar รองรับ Mobile */}
+      <div className="w-full md:w-[360px] absolute md:relative inset-y-0 right-0 shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-[1000] md:z-10 transition-all duration-300">
         
         <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col relative shrink-0">
           <button 
@@ -491,7 +492,7 @@ export default function AudioControl() {
   );
 }
 
-// --- Schedule Modal (คงเดิม) ---
+// --- Schedule Modal (ปรับแก้ Responsive) ---
 function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string[], onClose: () => void }) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -567,15 +568,23 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="bg-[#F8FAFC] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden border border-gray-200">
+      {/* เพิ่มโครงสร้างให้ Modal จำกัดความสูง และ Scroll ได้ */}
+      <div className="bg-[#F8FAFC] w-full max-w-4xl max-h-[95vh] rounded-3xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col">
         
-        <div className="bg-white border-b border-gray-100 p-5 flex justify-between items-center text-gray-900">
-          <h2 className="text-xl font-extrabold flex items-center gap-3"><Calendar size={22} className="text-[#48A0D8]" /> ตารางเวลา : {node.name}</h2>
-          <button onClick={onClose} className="hover:bg-gray-100 text-gray-400 hover:text-gray-800 p-2 rounded-full transition-colors"><X size={20} /></button>
+        <div className="bg-white border-b border-gray-100 p-4 md:p-5 flex justify-between items-center text-gray-900 shrink-0">
+          <h2 className="text-lg md:text-xl font-extrabold flex items-center gap-2 md:gap-3">
+            <Calendar size={22} className="text-[#48A0D8] shrink-0" /> 
+            <span className="truncate">ตารางเวลา : {node.name}</span>
+          </h2>
+          <button onClick={onClose} className="hover:bg-gray-100 text-gray-400 hover:text-gray-800 p-2 rounded-full transition-colors shrink-0">
+            <X size={20} />
+          </button>
         </div>
         
-        <div className="p-8">
-          <div className="bg-white border border-gray-200 p-6 rounded-2xl grid grid-cols-4 gap-4 items-end mb-8 relative shadow-sm">
+        {/* ส่วนเนื้อหาหลักที่เลื่อนขึ้นลงได้ */}
+        <div className="p-4 md:p-8 overflow-y-auto">
+          {/* ฟอร์มกรอกข้อมูล - เปลี่ยนจาก grid-cols-4 เป็น responsive 1/2/4 คอลัมน์ */}
+          <div className="bg-white border border-gray-200 p-4 md:p-6 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6 md:mb-8 relative shadow-sm">
              {isSaving && (
                <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
                  <div className="font-bold text-[#48A0D8] animate-pulse flex items-center gap-2">
@@ -606,38 +615,43 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
              </div>
           </div>
           
-          <button onClick={handleSave} disabled={isSaving || !newTime} className="bg-[#48A0D8] text-white px-10 py-3 rounded-xl font-bold mx-auto block hover:bg-blue-500 disabled:bg-gray-300 transition-all shadow-md">
+          <button onClick={handleSave} disabled={isSaving || !newTime} className="w-full md:w-auto bg-[#48A0D8] text-white px-10 py-3 rounded-xl font-bold mx-auto block hover:bg-blue-500 disabled:bg-gray-300 transition-all shadow-md">
             + เพิ่มตารางเวลา
           </button>
 
-          <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-h-[150px]">
-             <div className="grid grid-cols-12 p-4 font-bold text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
-               <div className="col-span-3">Days / วัน</div>
-               <div className="col-span-3">Time / เวลา</div>
-               <div className="col-span-3">File / ไฟล์เพลง</div>
-               <div className="col-span-2">Volume</div>
-               <div className="col-span-1 text-center">ลบ</div>
+          {/* ตารางเวลา - เพิ่ม Wrapper ให้ Scroll แนวนอนได้ในจอมือถือ */}
+          <div className="mt-6 md:mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-h-[150px]">
+             <div className="overflow-x-auto">
+                <div className="min-w-[600px]">
+                   <div className="grid grid-cols-12 p-4 font-bold text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
+                     <div className="col-span-3">Days / วัน</div>
+                     <div className="col-span-3">Time / เวลา</div>
+                     <div className="col-span-3">File / ไฟล์เพลง</div>
+                     <div className="col-span-2">Volume</div>
+                     <div className="col-span-1 text-center">ลบ</div>
+                   </div>
+                   
+                   {isLoading ? (
+                      <div className="p-8 text-center text-[#48A0D8] font-bold animate-pulse">กำลังโหลดตารางเวลา...</div>
+                   ) : schedules.length === 0 ? (
+                      <div className="p-8 text-center text-gray-400 font-bold">ยังไม่มีตารางเวลาสำหรับเสานี้</div>
+                   ) : (
+                      schedules.map(s => (
+                       <div key={s.id} className="grid grid-cols-12 p-4 border-b border-gray-100 items-center text-sm font-medium hover:bg-gray-50 transition-colors">
+                          <div className="col-span-3 text-gray-900 font-bold">{s.days}</div>
+                          <div className="col-span-3 text-gray-600">{s.time}</div>
+                          <div className="col-span-3 text-gray-600 truncate pr-2" title={s.file}>{s.file}</div>
+                          <div className="col-span-2 text-[#48A0D8] font-bold">{s.volume}%</div>
+                          <div className="col-span-1 text-center">
+                             <button onClick={() => handleDelete(s.id)} disabled={isSaving} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                                <Trash2 size={18}/>
+                             </button>
+                          </div>
+                       </div>
+                      ))
+                   )}
+                </div>
              </div>
-             
-             {isLoading ? (
-                <div className="p-8 text-center text-[#48A0D8] font-bold animate-pulse">กำลังโหลดตารางเวลา...</div>
-             ) : schedules.length === 0 ? (
-                <div className="p-8 text-center text-gray-400 font-bold">ยังไม่มีตารางเวลาสำหรับเสานี้</div>
-             ) : (
-                schedules.map(s => (
-                 <div key={s.id} className="grid grid-cols-12 p-4 border-b border-gray-100 items-center text-sm font-medium hover:bg-gray-50 transition-colors">
-                    <div className="col-span-3 text-gray-900 font-bold">{s.days}</div>
-                    <div className="col-span-3 text-gray-600">{s.time}</div>
-                    <div className="col-span-3 text-gray-600 truncate pr-2">{s.file}</div>
-                    <div className="col-span-2 text-[#48A0D8] font-bold">{s.volume}%</div>
-                    <div className="col-span-1 text-center">
-                       <button onClick={() => handleDelete(s.id)} disabled={isSaving} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
-                          <Trash2 size={18}/>
-                       </button>
-                    </div>
-                 </div>
-                ))
-             )}
           </div>
         </div>
       </div>
