@@ -95,17 +95,19 @@ export default function AddNode() {
                </div>
              </div>
              <div className="flex justify-center mt-6">
-                <button onClick={handleAdd} className="bg-[#48A0D8] text-white px-12 py-2.5 rounded-lg font-bold hover:bg-blue-600 transition-all w-full sm:w-auto shadow-sm">
+                <button onClick={handleAdd} className="bg-[#48A0D8] text-white px-12 py-2.5 rounded-lg font-bold hover:bg-blue-600 transition-all w-full sm:w-auto shadow-sm active:scale-95 touch-manipulation">
                   เพิ่มอุปกรณ์
                 </button>
              </div>
           </div>
         </div>
 
-        {/* Block 2: Table */}
+        {/* Block 2: Table & Mobile List */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden w-full">
           <div className="bg-[#48A0D8] p-4 text-white font-bold text-lg">รายการอุปกรณ์ในระบบ</div>
-          <div className="overflow-x-auto w-full">
+          
+          {/* Desktop Table View ( md: and up) */}
+          <div className="hidden md:block overflow-x-auto w-full">
             <table className="w-full text-left min-w-[600px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -123,14 +125,46 @@ export default function AddNode() {
                     <td className="p-4 text-sm font-medium text-gray-500">{node.lat}, {node.lng}</td>
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => openEdit(node)} className="bg-orange-500 text-white p-2 rounded-lg hover:bg-orange-600 transition-colors"><Pencil size={16} /></button>
-                        <button onClick={() => setDeleteTargetId(node.id)} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors"><Trash2 size={16} /></button>
+                        <button onClick={() => openEdit(node)} className="flex items-center gap-1 bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 shadow-sm text-xs font-bold transition-colors">
+                          <Pencil size={14} /> แก้ไข
+                        </button>
+                        <button onClick={() => setDeleteTargetId(node.id)} className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 shadow-sm text-xs font-bold transition-colors">
+                          <Trash2 size={14} /> ลบ
+                        </button>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card List View ( md: hidden ) */}
+          <div className="md:hidden border-t border-gray-100">
+            {nodes.map(node => (
+              <div key={node.id} className="border-b border-gray-100 p-4 space-y-3">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-sm font-bold text-gray-700">ชื่อจุดติดตั้ง</span>
+                  <span className="text-sm font-medium text-gray-900 truncate">{node.name}</span>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-sm font-bold text-gray-700">ที่อยู่</span>
+                  <span className="text-sm font-medium text-gray-900">{node.ip}:{node.port}</span>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-sm font-bold text-gray-700">พิกัด</span>
+                  <span className="text-sm font-medium text-gray-500 text-right">{node.lat}, {node.lng}</span>
+                </div>
+                <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
+                  <button onClick={() => openEdit(node)} className="flex items-center gap-1 bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 shadow-sm text-xs font-bold transition-colors">
+                    <Pencil size={14} /> แก้ไข
+                  </button>
+                  <button onClick={() => setDeleteTargetId(node.id)} className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 shadow-sm text-xs font-bold transition-colors">
+                    <Trash2 size={14} /> ลบ
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -177,7 +211,7 @@ export default function AddNode() {
               <button onClick={() => setIsEditOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200 transition-colors">
                 ยกเลิก
               </button>
-              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#48A0D8] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-sm">
+              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#48A0D8] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-sm active:scale-95">
                 <Save size={16} /> บันทึก
               </button>
             </div>

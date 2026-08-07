@@ -86,7 +86,7 @@ export default function AddUser() {
                 </select>
               </div>
               <div>
-                <button onClick={handleAdd} className="bg-[#519455] text-white w-full py-2.5 rounded-xl font-bold hover:bg-green-700 transition-all shadow-sm">
+                <button onClick={handleAdd} className="bg-[#519455] text-white w-full py-2.5 rounded-xl font-bold hover:bg-green-700 transition-all shadow-sm active:scale-95 touch-manipulation">
                   เพิ่มสมาชิก
                 </button>
               </div>
@@ -94,10 +94,12 @@ export default function AddUser() {
           </div>
         </div>
 
-        {/* Block 2: User List Table */}
+        {/* Block 2: User List Table & Mobile List */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
           <div className="bg-[#48A0D8] p-4 text-white font-bold text-lg">รายชื่อสมาชิกในระบบ</div>
-          <div className="overflow-x-auto w-full">
+          
+          {/* Desktop Table View ( md: and up) */}
+          <div className="hidden md:block overflow-x-auto w-full">
             <table className="w-full text-left min-w-[500px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -126,6 +128,30 @@ export default function AddUser() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View ( md: hidden) */}
+          <div className="md:hidden border-t border-gray-100">
+            {users.map(user => (
+              <div key={user.id} className="border-b border-gray-100 p-4 space-y-3">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-sm font-bold text-gray-700">ชื่อสมาชิก</span>
+                  <span className="text-sm font-medium text-gray-900 truncate">{user.name}</span>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-sm font-bold text-gray-700">สิทธิ์การเข้าถึง</span>
+                  <span className="text-sm font-medium text-gray-900">{user.role}</span>
+                </div>
+                <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
+                  <button onClick={() => openEdit(user)} className="flex items-center gap-1 bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 shadow-sm text-xs font-bold transition-colors">
+                    <Pencil size={14} /> แก้ไข
+                  </button>
+                  <button onClick={() => setDeleteTargetId(user.id)} className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 shadow-sm text-xs font-bold transition-colors">
+                    <Trash2 size={14} /> ลบ
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -133,15 +159,15 @@ export default function AddUser() {
       {isEditOpen && editingUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#48A0D8] p-5 text-white font-bold flex items-center justify-between">
+            <div className="bg-[#48A0D8] p-5 text-white font-bold flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <Pencil size={20} /> แก้ไขสมาชิก
               </div>
-              <button onClick={() => setIsEditOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors">
+              <button onClick={() => setIsEditOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors shrink-0">
                 <X size={18} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">ชื่อสมาชิก</label>
                 <input value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
@@ -159,11 +185,11 @@ export default function AddUser() {
                 </select>
               </div>
             </div>
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
               <button onClick={() => setIsEditOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200 transition-colors">
                 ยกเลิก
               </button>
-              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#48A0D8] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-sm">
+              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#48A0D8] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-sm active:scale-95">
                 <Save size={16} /> บันทึก
               </button>
             </div>

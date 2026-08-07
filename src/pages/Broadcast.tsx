@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Mic, Square, AlertTriangle, CheckSquare, Square as SquareOutline, Radio, ChevronUp, ChevronDown, Focus } from 'lucide-react';
+import { Mic, Square, AlertTriangle, CheckSquare, Square as SquareOutline, Radio, ChevronUp, ChevronDown, Focus, AlertCircle } from 'lucide-react';
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useUsers } from '../context/UserContext'; 
 import { logAction } from '../logger'; 
@@ -67,6 +67,11 @@ export default function Broadcast() {
   // ✅ เพิ่ม State ควบคุม Pop-up ยืนยัน Alarm
   const [showAlarmConfirm, setShowAlarmConfirm] = useState(false);
 
+  // 🚀 State สำหรับ Toast Notification
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
+  const popupTimeoutRef = useRef<number | null>(null);
+
   // 🎤 State & Refs สำหรับระบบไมโครโฟน
   const [micVolume, setMicVolume] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -76,6 +81,16 @@ export default function Broadcast() {
   const wsRef = useRef<WebSocket | null>(null);
 
   const onlineCount = Object.values(onlineStatuses).filter(Boolean).length;
+
+  // 🔔 ฟังก์ชันเรียกแจ้งเตือน Notification สวยๆ
+  const showNotification = (message: string) => {
+    setPopupMessage(message);
+    setShowPopup(true);
+    if (popupTimeoutRef.current) clearTimeout(popupTimeoutRef.current);
+    popupTimeoutRef.current = setTimeout(() => {
+      setShowPopup(false);
+    }, 3500);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -128,7 +143,7 @@ export default function Broadcast() {
 
   const toggleNode = (id: string) => {
     if (onlineStatuses[id] !== true) {
-      alert("⚠️ เสานี้ Offline อยู่ ไม่สามารถเลือกได้ครับ");
+      showNotification("เสานี้ Offline อยู่ ไม่สามารถเลือกได้ครับ");
       return;
     }
 
@@ -145,7 +160,7 @@ export default function Broadcast() {
   const handleSelectAll = () => {
     const onlineNodeIds = nodes.filter(n => onlineStatuses[n.id] === true).map(n => n.id);
     if (onlineNodeIds.length === 0) {
-      alert("⚠️ ไม่มีเสาไฟที่ Online อยู่ในขณะนี้ครับ");
+      showNotification("ไม่มีเสาไฟที่ Online อยู่ในขณะนี้ครับ");
       return;
     }
     setSelectedNodes(new Set(onlineNodeIds));
@@ -192,7 +207,7 @@ export default function Broadcast() {
 
   const handleStartBroadcast = async () => {
     if (selectedNodes.size === 0) {
-      alert("กรุณาเลือกเสาไฟบนแผนที่ก่อนครับ");
+      showNotification("กรุณาเลือกเสาไฟบนแผนที่ก่อนครับ");
       return;
     }
     
@@ -242,7 +257,7 @@ export default function Broadcast() {
 
       ws.onerror = (e) => {
         console.error("WebSocket Error:", e);
-        alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์กระจายเสียงได้");
+        showNotification("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์กระจายเสียงได้");
         stopMicrophone();
         setIsLoading(false);
       };
@@ -250,9 +265,9 @@ export default function Broadcast() {
     } catch (error: any) {
       console.error("Mic Error:", error);
       if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
-        alert("กรุณากดอนุญาตให้ใช้งานไมโครโฟนก่อนครับ \n(หากใช้งานผ่าน HTTP ให้ดูวิธีตั้งค่าที่ด้านบน)");
+        showNotification("กรุณากดอนุญาตให้ใช้งานไมโครโฟนก่อนครับ \n(หากใช้งานผ่าน HTTP ให้ดูวิธีตั้งค่าที่ด้านบน)");
       } else {
-        alert("ไม่สามารถเข้าถึงไมโครโฟนได้ หรือตรวจไม่พบไมโครโฟนในระบบ");
+        showNotification("ไม่สามารถเข้าถึงไมโครโฟนได้ หรือตรวจไม่พบไมโครโฟนในระบบ");
       }
       setIsLoading(false);
     }
@@ -278,7 +293,7 @@ export default function Broadcast() {
   // ✅ เรียกฟังก์ชันนี้เมื่อกดปุ่ม "เปิดเสียงแจ้งเตือนภัย" เพื่อโชว์ Pop-up
   const handlePlayAlarmClick = () => {
     if (selectedNodes.size === 0) {
-      alert("กรุณาเลือกเสาไฟที่ต้องการแจ้งเตือนก่อนครับ");
+      showNotification("กรุณาเลือกเสาไฟที่ต้องการแจ้งเตือนก่อนครับ");
       return;
     }
     setShowAlarmConfirm(true); // เปิด Pop-up
@@ -316,7 +331,7 @@ export default function Broadcast() {
 
     } catch (error) {
       console.error("Error playing alarm:", error);
-      alert("เกิดข้อผิดพลาดในการส่งคำสั่ง Alarm");
+      showNotification("เกิดข้อผิดพลาดในการส่งคำสั่ง Alarm");
     } finally {
       setIsLoading(false);
     }
@@ -343,7 +358,7 @@ export default function Broadcast() {
       setIsAlarmPlaying(false); 
     } catch (error) {
       console.error("Error stopping alarm:", error);
-      alert("เกิดข้อผิดพลาดในการหยุดเสียง Alarm");
+      showNotification("เกิดข้อผิดพลาดในการหยุดเสียง Alarm");
     } finally {
       setIsLoading(false);
     }
@@ -355,6 +370,18 @@ export default function Broadcast() {
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex flex-col md:flex-row overflow-hidden font-sans">
       
+      {/* 🚀 Minimal Popup Notification - แก้ไข Z-index และระยะ Top ให้พ้น Header */}
+      <div 
+        className={`fixed top-20 md:top-8 left-1/2 transform -translate-x-1/2 z-[10000] transition-all duration-300 ease-in-out ${
+          showPopup ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
+        }`}
+      >
+        <div className="bg-white/95 backdrop-blur-md shadow-xl border border-orange-100 px-6 py-3 rounded-2xl md:rounded-full flex items-center gap-3 w-max max-w-[90vw]">
+          <AlertCircle className="text-orange-500 shrink-0" size={20} />
+          <span className="font-bold text-gray-700 text-sm whitespace-pre-line text-left md:text-center">{popupMessage}</span>
+        </div>
+      </div>
+
       {/* ฝั่งซ้าย: แผนที่ระบบ */}
       <div className="flex-1 w-full relative z-0">
         <MapContainer center={[18.7953, 98.9529]} zoom={16} className="w-full h-full" zoomControl={false}>
@@ -458,13 +485,13 @@ export default function Broadcast() {
             <div className="flex gap-2">
               <button 
                 onClick={handleSelectAll} 
-                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-[#E5F3FF] hover:border-[#48A0D8] hover:text-[#48A0D8] transition-all text-gray-600"
+                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-[#E5F3FF] hover:border-[#48A0D8] hover:text-[#48A0D8] transition-all text-gray-600 active:scale-95 touch-manipulation"
               >
                 <CheckSquare size={16} /> ทั้งหมด
               </button>
               <button 
                 onClick={() => setSelectedNodes(new Set())} 
-                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-gray-100 transition-all text-gray-600"
+                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-gray-100 transition-all text-gray-600 active:scale-95 touch-manipulation"
               >
                 <SquareOutline size={16} /> ยกเลิก
               </button>
@@ -511,7 +538,7 @@ export default function Broadcast() {
               <button 
                 onClick={handleStartBroadcast}
                 disabled={isLoading || isAlarmPlaying || selectedNodes.size === 0}
-                className="w-full bg-[#48A0D8] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-md disabled:bg-gray-300 disabled:text-gray-500"
+                className="w-full bg-[#48A0D8] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-md disabled:bg-gray-300 disabled:text-gray-500 active:scale-95 touch-manipulation"
               >
                 {isLoading ? 'กำลังเชื่อมต่อ...' : '▶ เริ่มประกาศเสียงสด'}
               </button>
@@ -519,7 +546,7 @@ export default function Broadcast() {
               <button 
                 onClick={handleStopBroadcast}
                 disabled={isLoading}
-                className="w-full bg-red-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all animate-pulse shadow-md"
+                className="w-full bg-red-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all animate-pulse shadow-md active:scale-95 touch-manipulation"
               >
                 <Square size={16} fill="currentColor" /> {isLoading ? 'กำลังหยุด...' : 'หยุดประกาศเสียง'}
               </button>
@@ -539,9 +566,9 @@ export default function Broadcast() {
 
             {!isAlarmPlaying ? (
               <button 
-                onClick={handlePlayAlarmClick} // ✅ เปลี่ยนมาเรียกฟังก์ชันเปิด Pop-up แทน
+                onClick={handlePlayAlarmClick} 
                 disabled={isLoading || isBroadcasting || selectedNodes.size === 0}
-                className="w-full bg-white border-2 border-red-500 text-red-500 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all shadow-sm disabled:border-gray-200 disabled:text-gray-400 disabled:bg-gray-50"
+                className="w-full bg-white border-2 border-red-500 text-red-500 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all shadow-sm disabled:border-gray-200 disabled:text-gray-400 disabled:bg-gray-50 active:scale-95 touch-manipulation"
               >
                 {isLoading ? 'กำลังประมวลผล...' : '🚨 เปิดเสียงแจ้งเตือนภัย'}
               </button>
@@ -549,7 +576,7 @@ export default function Broadcast() {
               <button 
                 onClick={handleStopAlarm}
                 disabled={isLoading}
-                className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition-all animate-pulse shadow-md"
+                className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition-all animate-pulse shadow-md active:scale-95 touch-manipulation"
               >
                 <Square size={16} fill="currentColor" /> {isLoading ? 'กำลังหยุด...' : 'หยุดเสียงแจ้งเตือนภัย'}
               </button>
