@@ -88,7 +88,7 @@ export default function ActivityLogs() {
           <button 
             onClick={fetchLogs}
             disabled={isLoading}
-            className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 border border-gray-200 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 border border-gray-200 transition-all disabled:opacity-50 active:scale-95 touch-manipulation"
           >
             <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             รีเฟรชข้อมูล
@@ -96,73 +96,117 @@ export default function ActivityLogs() {
         </div>
 
         {/* Card ตารางข้อมูล */}
-        <div className="bg-white rounded-[32px] shadow-xl overflow-hidden border border-gray-100">
+        <div className="bg-white rounded-2xl md:rounded-[32px] shadow-xl overflow-hidden border border-gray-100">
           
           {/* Header ของ Card */}
-          <div className="bg-[#3B7BBD] p-5 flex items-center gap-3 text-white">
+          <div className="bg-[#3B7BBD] p-4 md:p-5 flex items-center gap-3 text-white">
             <div className="bg-white/20 p-2 rounded-xl">
               <ClipboardList size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Activity Logs</h2>
-              <p className="text-sm text-blue-100">ประวัติการใช้งานระบบ (ย้อนหลัง 7 วัน)</p>
+              <h2 className="text-lg md:text-xl font-bold">Activity Logs</h2>
+              <p className="text-xs md:text-sm text-blue-100">ประวัติการใช้งานระบบ (ย้อนหลัง 7 วัน)</p>
             </div>
           </div>
 
-          {/* พื้นที่ตาราง */}
-          <div className="p-0 overflow-x-auto">
+          {/* พื้นที่แสดงผลแบบ Responsive */}
+          <div className="p-0">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                 <RefreshCw size={40} className="animate-spin mb-4 text-[#48A0D8]" />
-                <p className="font-bold animate-pulse">กำลังโหลดข้อมูล...</p>
+                <p className="font-bold animate-pulse text-sm">กำลังโหลดข้อมูล...</p>
               </div>
             ) : error ? (
-              <div className="text-center py-20 text-red-500 font-bold">
+              <div className="text-center py-20 text-red-500 font-bold px-4 text-sm">
                 <p>{error}</p>
               </div>
             ) : logs.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">
+              <div className="text-center py-20 text-gray-500 px-4">
                 <ClipboardList size={48} className="mx-auto mb-3 text-gray-300" />
                 <p className="font-bold text-lg">ยังไม่มีประวัติการใช้งาน</p>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
-                    <th className="py-4 px-6 font-bold flex items-center gap-2"><Clock size={16}/> วันที่ / เวลา</th>
-                    <th className="py-4 px-6 font-bold"><div className="flex items-center gap-2"><UserIcon size={16}/> ผู้ใช้งาน</div></th>
-                    <th className="py-4 px-6 font-bold"><div className="flex items-center gap-2"><Activity size={16}/> การกระทำ</div></th>
-                    <th className="py-4 px-6 font-bold"><div className="flex items-center gap-2"><MapPin size={16}/> อุปกรณ์ / สถานที่</div></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
+              <>
+                {/* [1] Mobile View: List of Cards (ซ่อนเมื่อจอใหญ่ >= md) */}
+                <div className="md:hidden space-y-4 p-4">
                   {logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-blue-50/50 transition-colors">
-                      <td className="py-4 px-6 text-sm text-gray-600 whitespace-nowrap">
-                        {formatDate(log.created_at)}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="bg-blue-100 text-[#3B7BBD] font-bold px-3 py-1 rounded-full text-xs">
+                    <div key={log.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
+                      
+                      {/* บรรทัดแรก: วันที่และเวลา (วางไว้ด้านบนเพื่อให้เห็นชัดเจน) */}
+                      <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
+                        <Clock size={14} className="text-[#3B7BBD]" />
+                        <span>{formatDate(log.created_at)}</span>
+                      </div>
+
+                      {/* บรรทัดที่สอง: ผู้ใช้งานและการกระทำ (ใช้ Badge สไตล์เดิม) */}
+                      <div className="flex items-center justify-between gap-3 border-t border-b border-gray-100 py-3">
+                        <span className="bg-blue-100 text-[#3B7BBD] font-bold px-3 py-1.5 rounded-full text-xs">
                           {log.username}
                         </span>
-                      </td>
-                      <td className="py-4 px-6 text-sm font-medium text-gray-800">
-                        {log.action}
-                      </td>
-                      <td className="py-4 px-6 text-sm text-gray-600">
-                        {log.node_name && log.node_name !== '-' ? (
-                          <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-[#76E136]"></span>
-                            {log.node_name}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                    </tr>
+                        <p className="text-sm font-semibold text-gray-800 flex-1 text-right">
+                          {log.action}
+                        </p>
+                      </div>
+
+                      {/* บรรทัดสุดท้าย: อุปกรณ์ / สถานที่ */}
+                      <div className="flex items-center gap-2.5 pt-1">
+                        <MapPin size={18} className="text-[#76E136] flex-shrink-0" />
+                        <p className="text-sm text-gray-600 flex-1">
+                          {log.node_name && log.node_name !== '-' ? (
+                            <span className="flex items-center gap-1.5 font-medium text-gray-700">
+                              <span className="w-2 h-2 rounded-full bg-[#76E136]"></span>
+                              {log.node_name}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 font-medium">ไม่ระบุสถานที่</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+
+                {/* [2] Desktop View: Table (ซ่อนเมื่อจอเล็ก < md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[900px]"> {/* ปรับ min-w เพิ่มเล็กน้อย */}
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
+                        <th className="py-4 px-6 font-bold w-1/4 min-w-[200px]"><div className="flex items-center gap-2"><Clock size={16}/> วันที่ / เวลา</div></th>
+                        <th className="py-4 px-6 font-bold w-1/6"><div className="flex items-center gap-2"><UserIcon size={16}/> ผู้ใช้งาน</div></th>
+                        <th className="py-4 px-6 font-bold w-2/5"><div className="flex items-center gap-2"><Activity size={16}/> การกระทำ</div></th>
+                        <th className="py-4 px-6 font-bold w-1/6"><div className="flex items-center gap-2"><MapPin size={16}/> อุปกรณ์ / สถานที่</div></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {logs.map((log) => (
+                        <tr key={log.id} className="hover:bg-blue-50/50 transition-colors">
+                          <td className="py-4 px-6 text-sm text-gray-600 whitespace-nowrap">
+                            {formatDate(log.created_at)}
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className="bg-blue-100 text-[#3B7BBD] font-bold px-3 py-1 rounded-full text-xs">
+                              {log.username}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-sm font-medium text-gray-800">
+                            {log.action}
+                          </td>
+                          <td className="py-4 px-6 text-sm text-gray-600">
+                            {log.node_name && log.node_name !== '-' ? (
+                              <span className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-[#76E136]"></span>
+                                {log.node_name}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>
