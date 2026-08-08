@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Play, Square, Clock, Pause, Settings2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Search, Play, Square, Clock, Settings2, AlertCircle } from 'lucide-react';
 import { API_URL } from '../config';
-
-const WS_URL = `ws://${window.location.hostname}:8080`;
-// const WS_URL = 'ws://localhost:8080';
 
 interface Recording {
   id: string;
@@ -16,6 +13,11 @@ export default function CCTVPlayback() {
   const navigate = useNavigate();
   const { nodeId } = useParams();
   
+  const idMapping: { [key: string]: string } = {
+    "8": "7", 
+  };
+  const mappedNodeId = idMapping[String(nodeId)] || String(nodeId);
+  
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<Recording | null>(null);
@@ -24,22 +26,27 @@ export default function CCTVPlayback() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1.0);
   
-  // State สำหรับ Popup
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<any>(null);
 
+  // โหลดสคริปต์ JSMpeg เข้ามาในโปรเจกต์
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = "https://cdn.jsdelivr.net/npm/jsmpeg@1.0.0/dist/jsmpeg.min.js";
-    script.async = true;
-    document.body.appendChild(script);
+    let script = document.querySelector('script[src*="jsmpeg"]') as HTMLScriptElement;
+    if (!script) {
+      script = document.createElement('script');
+      script.src = "/jsmpeg.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
 
     return () => {
-      document.body.removeChild(script);
-      if (playerRef.current) playerRef.current.destroy();
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
     };
   }, []);
 
@@ -56,7 +63,7 @@ export default function CCTVPlayback() {
     try {
       const formData = new FormData();
       formData.append('action', 'search');
-      formData.append('camera_id', nodeId || '');
+      formData.append('camera_id', mappedNodeId);
       formData.append('date', date);
 
       const res = await fetch(`${API_URL}/playback_proxy.php`, {
@@ -83,19 +90,31 @@ export default function CCTVPlayback() {
   const playPlayback = () => {
     if (!selectedSegment || !canvasRef.current) return;
     
+    if (!(window as any).JSMpeg || !(window as any).JSMpeg.Player) {
+      showNotification('กำลังโหลด Player กรุณาลองใหม่อีกครั้ง...');
+      return;
+    }
+    
     if (playerRef.current) {
       playerRef.current.destroy();
+      playerRef.current = null;
     }
 
-    const wsUrl = `${WS_URL}/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
+    // 🚀 ยิงตรงเข้า WebSocket พอร์ต 8090 ของเซิร์ฟเวอร์ Node.js ที่เปิดอยู่
+    const host = window.location.hostname;
+    const wsUrl = `ws://${host}:8090/?camera_id=${mappedNodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
     
-    playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
-      canvas: canvasRef.current,
-      autoplay: true,
-      audio: true
-    });
-    
-    setIsPlaying(true);
+    try {
+      playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
+        canvas: canvasRef.current,
+        autoplay: true,
+        audio: false
+      });
+      setIsPlaying(true);
+    } catch (e) {
+      console.error("JSMpeg Error:", e);
+      showNotification('ไม่สามารถเชื่อมต่อสตรีมวิดีโอได้');
+    }
   };
 
   const stopPlayback = () => {
@@ -106,41 +125,8 @@ export default function CCTVPlayback() {
     setIsPlaying(false);
   };
 
-  const togglePause = () => {
-    if (!playerRef.current) return;
-    if (isPlaying) {
-      playerRef.current.pause();
-    } else {
-      playerRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
-
   const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSpeed = Number(e.target.value);
-    setSpeed(newSpeed);
-
-    if (playerRef.current && selectedSegment && canvasRef.current) {
-      const wasPlaying = isPlaying;
-      playerRef.current.destroy();
-
-      const wsUrl = `${WS_URL}/playback_ws.php?camera_id=${nodeId}&start=${encodeURIComponent(selectedSegment.start)}&end=${encodeURIComponent(selectedSegment.end)}`;
-      
-      playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
-        canvas: canvasRef.current,
-        autoplay: true,
-        audio: true
-      });
-
-      if (!wasPlaying) {
-        setTimeout(() => {
-          if (playerRef.current) playerRef.current.pause();
-          setIsPlaying(false);
-        }, 1000);
-      } else {
-        setIsPlaying(true);
-      }
-    }
+    setSpeed(Number(e.target.value));
   };
 
   const getTimelineStyle = (startStr: string, endStr: string) => {
@@ -157,7 +143,6 @@ export default function CCTVPlayback() {
 
   return (
     <main className="p-4 md:p-6 bg-gray-100 min-h-screen font-sans relative">
-      {/* 🚀 Minimal Popup Notification - แก้ไข Z-index และระยะ Top ให้พ้น Header */}
       <div 
         className={`fixed top-20 md:top-8 left-1/2 transform -translate-x-1/2 z-[9999] transition-all duration-300 ease-in-out ${
           showPopup ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
@@ -201,10 +186,10 @@ export default function CCTVPlayback() {
               <h3 className="text-lg font-bold mb-4 text-gray-800">Playback Viewer</h3>
               
               <div className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white mb-6 overflow-hidden relative">
-                <canvas ref={canvasRef} className="w-full h-full block"></canvas>
+                <canvas ref={canvasRef} className="w-full h-full block bg-black"></canvas>
                 
-                {!isPlaying && !playerRef.current && (
-                   <div className="absolute inset-0 flex items-center justify-center text-white/50 font-bold text-sm md:text-base text-center px-4">
+                {!isPlaying && (
+                   <div className="absolute inset-0 flex items-center justify-center text-white/50 font-bold text-sm md:text-base text-center px-4 pointer-events-none">
                      {selectedSegment ? 'กดปุ่ม Play เพื่อเริ่มเล่น' : 'กรุณาค้นหาและเลือกช่วงเวลา'}
                    </div>
                 )}
@@ -216,7 +201,7 @@ export default function CCTVPlayback() {
                   {recordings.map((rec) => (
                     <div 
                       key={rec.id}
-                      className={`absolute h-full bg-blue-500/60 border-r border-white/50 transition-all hover:opacity-100 ${selectedSegment?.id === rec.id ? 'bg-blue-600 shadow-[0_0_0_2px_white_inset]' : ''}`}
+                      className={`absolute h-full bg-blue-500/60 border-r border-white/50 transition-all hover:opacity-100 cursor-pointer ${selectedSegment?.id === rec.id ? 'bg-blue-600 shadow-[0_0_0_2px_white_inset]' : ''}`}
                       style={getTimelineStyle(rec.start, rec.end)}
                       onClick={() => setSelectedSegment(rec)}
                       title={`${rec.start} - ${rec.end}`}
@@ -229,18 +214,16 @@ export default function CCTVPlayback() {
               </div>
 
               <div className="flex items-center gap-3 md:gap-4 mt-6 flex-wrap">
-                {!isPlaying ? (
-                  <button onClick={playPlayback} disabled={!selectedSegment} className="flex-1 md:flex-none justify-center bg-green-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all shadow-md active:scale-95 touch-manipulation">
-                    <Play size={24} fill="currentColor" />
-                  </button>
-                ) : (
-                  <button onClick={togglePause} className="flex-1 md:flex-none justify-center bg-orange-500 text-white p-3 rounded-xl transition-all shadow-md active:scale-95 touch-manipulation">
-                    <Pause size={24} fill="currentColor" />
-                  </button>
-                )}
+                <button 
+                  onClick={playPlayback} 
+                  disabled={!selectedSegment || isPlaying} 
+                  className="flex-1 md:flex-none justify-center bg-green-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all shadow-md active:scale-95 touch-manipulation flex items-center gap-2 px-6 font-bold"
+                >
+                  <Play size={20} fill="currentColor" /> Play
+                </button>
                 
-                <button onClick={stopPlayback} disabled={!playerRef.current} className="flex-1 md:flex-none justify-center bg-red-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all shadow-md active:scale-95 touch-manipulation">
-                  <Square size={24} fill="currentColor" />
+                <button onClick={stopPlayback} disabled={!isPlaying} className="flex-1 md:flex-none justify-center bg-red-600 text-white p-3 rounded-xl disabled:bg-gray-300 transition-all shadow-md active:scale-95 touch-manipulation">
+                  <Square size={20} fill="currentColor" /> Stop
                 </button>
 
                 <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-xl border border-gray-200 flex-1 md:flex-none justify-center">
