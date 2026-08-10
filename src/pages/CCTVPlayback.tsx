@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Play, Pause, Square, Clock, AlertCircle, Maximize, Volume2, VolumeX, ChevronLeft, ChevronRight, Video } from 'lucide-react';
+import { ArrowLeft, Search, Play, Pause, Square, Clock, AlertCircle, Maximize, Volume2, VolumeX, ChevronLeft, ChevronRight, Video, ChevronDown } from 'lucide-react';
 import { API_URL } from '../config';
 
 interface Recording {
@@ -532,7 +532,7 @@ export default function CCTVPlayback() {
               
               <div 
                 ref={videoContainerRef} 
-                className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white mb-6 overflow-hidden relative group"
+                className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white mb-6 overflow-hidden relative group shadow-sm"
                 onMouseMove={() => { if (isPlayingRef.current) resetControlsTimeout(); }}
                 onMouseLeave={() => { if (isPlayingRef.current && !isPaused) setShowControls(false); }}
               >
@@ -605,44 +605,51 @@ export default function CCTVPlayback() {
                 )}
               </div>
 
-              {/* ✅ ส่วนที่อัปเกรดใหม่: เพิ่มรายการปุ่ม "คลิปวิดีโอ" สำหรับมือถือโดยเฉพาะ */}
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                {recordings.length > 0 ? (
+              <div className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100">
+                {/* ✅ ส่วนที่แก้ไขใหม่: เปลี่ยนรายการปุ่มเป็น Dropdown สไตล์โมเดิร์น */}
+                {recordings.length > 0 && (
                   <div className="mb-5">
-                    <div className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
-                      <Video size={14} className="text-blue-500" /> เลือกเปิดภาพย้อนหลังตามช่วงเวลา
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar snap-x touch-pan-x">
-                      {recordings.map((rec, idx) => (
-                        <button
-                          key={`clip-${idx}`}
-                          onClick={() => {
+                    <label className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+                      <Video size={16} className="text-[#48A0D8]" /> เลือกเปิดภาพย้อนหลังตามช่วงเวลา
+                    </label>
+                    <div className="relative w-full md:w-2/3">
+                      <select
+                        className="w-full bg-white border border-gray-200 text-gray-700 py-3.5 px-4 pr-10 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#48A0D8] appearance-none cursor-pointer shadow-sm transition-all"
+                        value={selectedSegment?.id || ""}
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          const rec = recordings.find(r => r.id === selectedId);
+                          if (rec) {
                             setSelectedSegment(rec);
                             setPlaybackProgress(0);
                             startStreamAtSegment(rec, 0);
-                          }}
-                          className={`shrink-0 snap-start px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                            selectedSegment?.id === rec.id
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                              : 'bg-white text-gray-600 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
-                          }`}
-                        >
-                          <Clock size={12} className="inline mr-1.5 opacity-70" />
-                          {rec.start.split('T')[1].substring(0, 5)} - {rec.end.split('T')[1].substring(0, 5)}
-                        </button>
-                      ))}
+                          }
+                        }}
+                      >
+                        <option value="" disabled>-- กรุณาเลือกช่วงเวลาบันทึก --</option>
+                        {recordings.map((rec) => {
+                          const startTime = rec.start.split('T')[1].substring(0, 5);
+                          const endTime = rec.end.split('T')[1].substring(0, 5);
+                          return (
+                            <option key={rec.id} value={rec.id}>
+                              เวลา {startTime} - {endTime} น.
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#48A0D8]">
+                        <ChevronDown size={20} strokeWidth={2.5} />
+                      </div>
                     </div>
                   </div>
-                ) : null}
+                )}
 
-                {/* ✅ ส่วนที่อัปเกรดใหม่: ทำให้ Timeline ปัดซ้ายขวาได้ เพื่อขยายพื้นที่ให้กดง่ายขึ้น */}
                 <div className="text-xs font-bold text-gray-400 mb-2 flex justify-between">
-                  <span>Timeline</span>
+                  <span>Timeline (ปัดเลื่อนซ้าย-ขวาได้)</span>
                   {isPlaying && <span className="text-blue-600 font-mono">{playbackProgress.toFixed(0)}%</span>}
                 </div>
                 
                 <div className="overflow-x-auto pb-2 custom-scrollbar touch-pan-x">
-                  {/* ขยายความกว้างขั้นต่ำ 600px เพื่อให้ไม่เบียดกันในมือถือ */}
                   <div className="min-w-[600px] md:min-w-full">
                     <div className="h-16 bg-gray-200 rounded-lg relative overflow-hidden cursor-pointer shadow-inner">
                       {recordings.map((rec) => (
