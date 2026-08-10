@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import { API_URL } from '../config';
 
 export interface UserItem {
@@ -30,17 +30,45 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // ✅ ตัวแปรเก็บเวลาที่ขยับเมาส์/หน้าจอ ครั้งล่าสุด
+  const lastActivityTime = useRef<number>(Date.now());
+
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // ระบบหัวใจเต้น เช็คทุก 10 วินาที
+  // ✅ ดักจับการเคลื่อนไหวของผู้ใช้ (เมาส์, คีย์บอร์ด, ทัชสกรีน)
+  useEffect(() => {
+    const updateActivity = () => {
+      lastActivityTime.current = Date.now();
+    };
+
+    const events = ['mousemove', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(e => window.addEventListener(e, updateActivity));
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, updateActivity));
+    };
+  }, []);
+
+  // ✅ ระบบหัวใจเต้น + เช็กการปล่อยหน้าจอทิ้งไว้ (Inactivity Timeout)
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
 
     const verifySession = async () => {
       if (!currentUser || !currentUser.session_token) return;
 
+      // 1. เช็กก่อนเลยว่า ผู้ใช้ปล่อยหน้าจอทิ้งไว้เกิน 30 นาที (1,800,000 มิลลิวินาที) หรือยัง?
+      const TIMEOUT_MS = 30 * 60 * 1000;
+      if (Date.now() - lastActivityTime.current > TIMEOUT_MS) {
+        // ถ้าเกิน 30 นาที ให้เรียกคำสั่ง Logout ทันที
+        logout();
+        alert("เซสชันหมดอายุเนื่องจากไม่มีการใช้งานเป็นเวลา 30 นาที กรุณาเข้าสู่ระบบใหม่");
+        window.location.href = '/login';
+        return;
+      }
+
+      // 2. ถ้ายังมีการใช้งานอยู่ ค่อยส่งหัวใจเต้นไปอัปเดตเวลาที่เซิร์ฟเวอร์
       try {
         const formData = new FormData();
         formData.append('id', currentUser.id);
@@ -52,7 +80,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         });
         const data = await res.json();
 
-        // ถ้า Session โดนลบ หรือขาดการติดต่อนานเกินไป ให้เด้งออก
+        // ถ้า Session โดนลบ (เช่น โดนแอดมินลบไอดี หรือเซิร์ฟเวอร์รีเซ็ต) ให้เด้งออก
         if (!data.valid) {
           localStorage.removeItem('currentUser');
           setCurrentUser(null);
@@ -64,6 +92,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     };
 
     if (currentUser) {
+      // เช็กทุกๆ 10 วินาที
       intervalId = setInterval(verifySession, 10000);
     }
 
@@ -119,7 +148,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         };
 
         setCurrentUser(loggedInUser);
-        // ✅ บันทึกลง localStorage
+        // รีเซ็ตเวลาตอนล็อกอินใหม่
+        lastActivityTime.current = Date.now();
         localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
         return { success: true };
       }
@@ -140,7 +170,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     setCurrentUser(null);
-    // ✅ ลบออกจาก localStorage
     localStorage.removeItem('currentUser');
   };
 
