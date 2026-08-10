@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Play, Pause, Square, Clock, Settings2, AlertCircle, Maximize, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Search, Play, Pause, Square, Clock, AlertCircle, Maximize, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
 import { API_URL } from '../config';
 
 interface Recording {
@@ -21,14 +21,14 @@ export default function CCTVPlayback() {
   const todayStr = new Date().toISOString().split('T')[0];
   const [date, setDate] = useState(todayStr);
   const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [recordedDatesInMonth, setRecordedDatesInMonth] = useState<string[]>([todayStr]);
+  
+  const [recordedDatesInMonth, setRecordedDatesInMonth] = useState<string[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<Recording | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [speed, setSpeed] = useState(1.0);
   const [playbackProgress, setPlaybackProgress] = useState(0); 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [totalDurationSeconds, setTotalDurationSeconds] = useState(0);
@@ -60,6 +60,52 @@ export default function CCTVPlayback() {
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     };
   }, []);
+
+  // ระบบค่อยๆ เช็ก SD Card ทีละวัน
+  useEffect(() => {
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth();
+    let isCancelled = false;
+
+    const fetchDatesSequentially = async () => {
+      const daysCount = new Date(year, month + 1, 0).getDate();
+      const today = new Date();
+      
+      const maxDay = (year === today.getFullYear() && month === today.getMonth()) 
+        ? today.getDate() 
+        : (year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth())) 
+          ? 0 
+          : daysCount;
+
+      setRecordedDatesInMonth([]); 
+
+      for (let d = 1; d <= maxDay; d++) {
+        if (isCancelled) break;
+        
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const formData = new FormData();
+        formData.append('action', 'search');
+        formData.append('camera_id', mappedNodeId);
+        formData.append('date', dateStr);
+        
+        try {
+          const res = await fetch(`${API_URL}/playback_proxy.php`, { method: 'POST', body: formData });
+          const result = await res.json();
+          
+          if (!isCancelled && result.success && result.recordings && result.recordings.length > 0) {
+            setRecordedDatesInMonth(prev => prev.includes(dateStr) ? prev : [...prev, dateStr]);
+          }
+        } catch (error) {
+          console.warn(`Check failed for ${dateStr}`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    };
+
+    fetchDatesSequentially();
+    return () => { isCancelled = true; };
+  }, [calendarViewDate, mappedNodeId]);
 
   const showNotification = (message: string) => {
     setPopupMessage(message);
@@ -131,6 +177,7 @@ export default function CCTVPlayback() {
     const wsUrl = `ws://${host}:8090/?camera_id=${mappedNodeId}&start=${encodeURIComponent(adjustedStart)}&end=${encodeURIComponent(segment.end)}`;
     
     try {
+      // ✅ กลับมาใช้โค้ดเดิมของคุณที่เล่นได้ 100% แน่นอน
       playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
         canvas: canvasRef.current,
         autoplay: true,
@@ -150,7 +197,6 @@ export default function CCTVPlayback() {
     startStreamAtSegment(selectedSegment, 0);
   };
 
-  // ปุ่มสลับ Play / Pause
   const togglePlayPause = () => {
     if (!playerRef.current) return;
     if (isPaused) {
@@ -189,6 +235,11 @@ export default function CCTVPlayback() {
     setIsPaused(false);
     setPlaybackProgress(0);
     setElapsedSeconds(0);
+
+    // ✅ เคลียร์หน้าจออย่างปลอดภัย: ใช้การรีเซ็ตขนาด canvas จะล้างภาพเก่าทิ้งโดยไม่ให้ WebGL ทะเลาะกับ 2D 
+    if (canvasRef.current) {
+      canvasRef.current.width = canvasRef.current.width;
+    }
   };
 
   const toggleMute = () => {
@@ -220,10 +271,6 @@ export default function CCTVPlayback() {
     setSelectedSegment(rec);
     setPlaybackProgress(percentage * 100);
     startStreamAtSegment(rec, offsetSec);
-  };
-
-  const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSpeed(Number(e.target.value));
   };
 
   const toggleFullscreen = () => {
@@ -359,14 +406,11 @@ export default function CCTVPlayback() {
                 <h3 className="text-lg font-bold text-gray-800">Playback Viewer</h3>
               </div>
               
-              {/* Video Container พร้อมแถบควบคุมสไตล์มาตรฐานด้านล่าง */}
               <div ref={videoContainerRef} className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white mb-6 overflow-hidden relative group">
                 <canvas ref={canvasRef} className="w-full h-full block bg-black"></canvas>
 
-                {/* แถบควบคุมบนวิดีโอ (สไตล์มาตรฐาน) จะแสดงขึ้นมาเมื่อเอาเมาส์ชี้ */}
                 {isPlaying && (
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* หลอดความคืบหน้า (Scrubber Bar) */}
                     <div 
                       className="w-full bg-white/30 h-1.5 rounded-full cursor-pointer relative overflow-hidden"
                       onClick={(e) => {
@@ -453,30 +497,6 @@ export default function CCTVPlayback() {
                 >
                   <Square size={20} fill="currentColor" /> Stop
                 </button>
-
-                {/* ปุ่มเปิด/ปิดเสียง (Mute/Unmute) ที่แถบควบคุมด้านล่าง */}
-                <button 
-                  onClick={toggleMute}
-                  className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-xl border border-gray-200 transition-all font-bold active:scale-95"
-                  title={isMuted ? "เปิดเสียง" : "ปิดเสียง"}
-                >
-                  {isMuted ? <VolumeX size={20} className="text-red-500 shrink-0" /> : <Volume2 size={20} className="text-green-600 shrink-0" />}
-                  <span className="text-sm">{isMuted ? 'ปิดเสียง' : 'เปิดเสียง'}</span>
-                </button>
-
-                <div className="flex items-center gap-2 bg-gray-100 px-3 py-2.5 rounded-xl border border-gray-200 flex-1 md:flex-none justify-center">
-                  <Settings2 size={18} className="text-gray-500 shrink-0" />
-                  <select 
-                    value={speed}
-                    onChange={handleSpeedChange}
-                    className="bg-transparent text-gray-700 font-bold border-0 outline-none cursor-pointer w-full"
-                  >
-                    <option value="0.5">0.5x</option>
-                    <option value="1">1.0x (Normal)</option>
-                    <option value="2">2.0x</option>
-                    <option value="4">4.0x</option>
-                  </select>
-                </div>
 
                 <div className="w-full md:w-auto md:ml-auto font-mono font-bold text-gray-700 flex items-center justify-center md:justify-end gap-2 bg-gray-100 px-4 py-2.5 md:py-2 rounded-xl">
                   <Clock size={18} className="text-[#48A0D8] shrink-0" /> 
