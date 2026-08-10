@@ -61,13 +61,13 @@ export default function CCTVPlayback() {
     };
   }, []);
 
-  // ระบบค่อยๆ เช็ก SD Card ทีละวัน
+  // ✅ อัปเกรดความเร็วปฏิทิน: แบ่งกลุ่มยิง (Chunking) ทีละ 4 วัน และยิงจากวันปัจจุบันถอยหลัง
   useEffect(() => {
     const year = calendarViewDate.getFullYear();
     const month = calendarViewDate.getMonth();
     let isCancelled = false;
 
-    const fetchDatesSequentially = async () => {
+    const fetchDatesFast = async () => {
       const daysCount = new Date(year, month + 1, 0).getDate();
       const today = new Date();
       
@@ -79,31 +79,45 @@ export default function CCTVPlayback() {
 
       setRecordedDatesInMonth([]); 
 
-      for (let d = 1; d <= maxDay; d++) {
+      // เอาวันที่มาเรียงจาก ล่าสุด -> อดีต (เช่น 10, 9, 8...1) จุดจะโผล่ให้เห็นทันที
+      const daysToCheck = [];
+      for (let d = maxDay; d >= 1; d--) {
+        daysToCheck.push(d);
+      }
+
+      // ส่งคำสั่งไปเช็ก SD Card ทีละ 4 วันพร้อมกัน (เร็วขึ้น 4 เท่า และกล้องไม่ค้าง)
+      const chunkSize = 4; 
+      
+      for (let i = 0; i < daysToCheck.length; i += chunkSize) {
         if (isCancelled) break;
         
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const formData = new FormData();
-        formData.append('action', 'search');
-        formData.append('camera_id', mappedNodeId);
-        formData.append('date', dateStr);
+        const chunk = daysToCheck.slice(i, i + chunkSize);
         
-        try {
-          const res = await fetch(`${API_URL}/playback_proxy.php`, { method: 'POST', body: formData });
-          const result = await res.json();
+        await Promise.all(chunk.map(async (d) => {
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          const formData = new FormData();
+          formData.append('action', 'search');
+          formData.append('camera_id', mappedNodeId);
+          formData.append('date', dateStr);
           
-          if (!isCancelled && result.success && result.recordings && result.recordings.length > 0) {
-            setRecordedDatesInMonth(prev => prev.includes(dateStr) ? prev : [...prev, dateStr]);
+          try {
+            const res = await fetch(`${API_URL}/playback_proxy.php`, { method: 'POST', body: formData });
+            const result = await res.json();
+            
+            if (!isCancelled && result.success && result.recordings && result.recordings.length > 0) {
+              setRecordedDatesInMonth(prev => prev.includes(dateStr) ? prev : [...prev, dateStr]);
+            }
+          } catch (error) {
+            console.warn(`Check failed for ${dateStr}`);
           }
-        } catch (error) {
-          console.warn(`Check failed for ${dateStr}`);
-        }
+        }));
         
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // พักให้ SD Card หายใจ 50ms ก่อนเช็ก 4 วันถัดไป
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     };
 
-    fetchDatesSequentially();
+    fetchDatesFast();
     return () => { isCancelled = true; };
   }, [calendarViewDate, mappedNodeId]);
 
@@ -177,7 +191,6 @@ export default function CCTVPlayback() {
     const wsUrl = `ws://${host}:8090/?camera_id=${mappedNodeId}&start=${encodeURIComponent(adjustedStart)}&end=${encodeURIComponent(segment.end)}`;
     
     try {
-      // ✅ กลับมาใช้โค้ดเดิมของคุณที่เล่นได้ 100% แน่นอน
       playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
         canvas: canvasRef.current,
         autoplay: true,
@@ -236,7 +249,6 @@ export default function CCTVPlayback() {
     setPlaybackProgress(0);
     setElapsedSeconds(0);
 
-    // ✅ เคลียร์หน้าจออย่างปลอดภัย: ใช้การรีเซ็ตขนาด canvas จะล้างภาพเก่าทิ้งโดยไม่ให้ WebGL ทะเลาะกับ 2D 
     if (canvasRef.current) {
       canvasRef.current.width = canvasRef.current.width;
     }
