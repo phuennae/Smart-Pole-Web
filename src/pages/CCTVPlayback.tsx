@@ -187,6 +187,14 @@ export default function CCTVPlayback() {
     }, 3500);
   };
 
+  // ✅ ฟังก์ชันแปลงเวลาจาก UTC (ที่กล้องส่งมา) เป็นเวลาเครื่อง (เวลาไทย)
+  const formatLocalTime = (isoString: string) => {
+    const dateObj = new Date(isoString);
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const startStreamAtSegment = (segment: Recording, offsetSeconds: number = 0) => {
     if (!canvasRef.current) return;
     
@@ -606,7 +614,6 @@ export default function CCTVPlayback() {
               </div>
 
               <div className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100">
-                {/* ✅ ส่วนที่แก้ไขใหม่: เปลี่ยนรายการปุ่มเป็น Dropdown สไตล์โมเดิร์น */}
                 {recordings.length > 0 && (
                   <div className="mb-5">
                     <label className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
@@ -628,8 +635,9 @@ export default function CCTVPlayback() {
                       >
                         <option value="" disabled>-- กรุณาเลือกช่วงเวลาบันทึก --</option>
                         {recordings.map((rec) => {
-                          const startTime = rec.start.split('T')[1].substring(0, 5);
-                          const endTime = rec.end.split('T')[1].substring(0, 5);
+                          {/* ✅ แปลงเวลา UTC ให้เป็นเวลาประเทศไทย (GMT+7) เพื่อแสดงผลใน Dropdown */}
+                          const startTime = formatLocalTime(rec.start);
+                          const endTime = formatLocalTime(rec.end);
                           return (
                             <option key={rec.id} value={rec.id}>
                               เวลา {startTime} - {endTime} น.
@@ -696,7 +704,8 @@ export default function CCTVPlayback() {
                 <div className="w-full md:w-auto md:ml-auto font-mono font-bold text-gray-700 flex items-center justify-center md:justify-end gap-2 bg-gray-100 px-4 py-2.5 md:py-2 rounded-xl">
                   <Clock size={18} className="text-[#48A0D8] shrink-0" /> 
                   <span className="text-sm">
-                    {selectedSegment ? selectedSegment.start.split('T')[1].substring(0, 5) + ' - ' + selectedSegment.end.split('T')[1].substring(0, 5) : '--:--'}
+                    {/* ✅ แปลงเวลา UTC ให้เป็นเวลาประเทศไทย (GMT+7) เพื่อแสดงผลมุมขวาล่าง */}
+                    {selectedSegment ? `${formatLocalTime(selectedSegment.start)} - ${formatLocalTime(selectedSegment.end)}` : '--:--'}
                   </span>
                 </div>
               </div>
