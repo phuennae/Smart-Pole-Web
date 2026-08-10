@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Play, Pause, Square, Clock, AlertCircle, Maximize, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Search, Play, Pause, Square, Clock, AlertCircle, Maximize, Volume2, VolumeX, ChevronLeft, ChevronRight, Video } from 'lucide-react';
 import { API_URL } from '../config';
 
 interface Recording {
@@ -38,10 +38,27 @@ export default function CCTVPlayback() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
   
+  const [skipIndicator, setSkipIndicator] = useState<'forward' | 'backward' | null>(null);
+  const [showControls, setShowControls] = useState(true);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<any>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+  
   const progressTimerRef = useRef<any>(null);
+  const skipTimeoutRef = useRef<any>(null);
+  const singleTapTimeoutRef = useRef<any>(null);
+  const controlsTimeoutRef = useRef<any>(null);
+  const lastTapRef = useRef<{ time: number, side: 'left' | 'right' } | null>(null);
+
+  const isPlayingRef = useRef(false);
+  const isMutedRef = useRef(false);
+  const selectedSegmentRef = useRef<Recording | null>(null);
+  const elapsedSecondsRef = useRef(0);
+  const totalDurationSecondsRef = useRef(0);
+
+  useEffect(() => { selectedSegmentRef.current = selectedSegment; }, [selectedSegment]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   useEffect(() => {
     let script = document.querySelector('script[src*="jsmpeg"]') as HTMLScriptElement;
@@ -58,10 +75,12 @@ export default function CCTVPlayback() {
         playerRef.current = null;
       }
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+      if (singleTapTimeoutRef.current) clearTimeout(singleTapTimeoutRef.current);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
   }, []);
 
-  // ✅ อัปเกรดความเร็วปฏิทิน: แบ่งกลุ่มยิง (Chunking) ทีละ 4 วัน และยิงจากวันปัจจุบันถอยหลัง
   useEffect(() => {
     const year = calendarViewDate.getFullYear();
     const month = calendarViewDate.getMonth();
@@ -79,13 +98,11 @@ export default function CCTVPlayback() {
 
       setRecordedDatesInMonth([]); 
 
-      // เอาวันที่มาเรียงจาก ล่าสุด -> อดีต (เช่น 10, 9, 8...1) จุดจะโผล่ให้เห็นทันที
       const daysToCheck = [];
       for (let d = maxDay; d >= 1; d--) {
         daysToCheck.push(d);
       }
 
-      // ส่งคำสั่งไปเช็ก SD Card ทีละ 4 วันพร้อมกัน (เร็วขึ้น 4 เท่า และกล้องไม่ค้าง)
       const chunkSize = 4; 
       
       for (let i = 0; i < daysToCheck.length; i += chunkSize) {
@@ -112,7 +129,6 @@ export default function CCTVPlayback() {
           }
         }));
         
-        // พักให้ SD Card หายใจ 50ms ก่อนเช็ก 4 วันถัดไป
         await new Promise(resolve => setTimeout(resolve, 50));
       }
     };
@@ -163,6 +179,14 @@ export default function CCTVPlayback() {
     }
   };
 
+  const resetControlsTimeout = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlayingRef.current) setShowControls(false);
+    }, 3500);
+  };
+
   const startStreamAtSegment = (segment: Recording, offsetSeconds: number = 0) => {
     if (!canvasRef.current) return;
     
@@ -179,8 +203,11 @@ export default function CCTVPlayback() {
     let startTimeObj = new Date(segment.start);
     let endTimeObj = new Date(segment.end);
     const totalSec = Math.max(1, (endTimeObj.getTime() - startTimeObj.getTime()) / 1000);
+    
     setTotalDurationSeconds(totalSec);
+    totalDurationSecondsRef.current = totalSec;
     setElapsedSeconds(offsetSeconds);
+    elapsedSecondsRef.current = offsetSeconds;
 
     if (offsetSeconds > 0) {
       startTimeObj = new Date(startTimeObj.getTime() + offsetSeconds * 1000);
@@ -191,17 +218,89 @@ export default function CCTVPlayback() {
     const wsUrl = `ws://${host}:8090/?camera_id=${mappedNodeId}&start=${encodeURIComponent(adjustedStart)}&end=${encodeURIComponent(segment.end)}`;
     
     try {
-      playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
-        canvas: canvasRef.current,
-        autoplay: true,
-        audio: !isMuted
-      });
+      try {
+        playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
+          canvas: canvasRef.current,
+          autoplay: true,
+          audio: !isMutedRef.current
+        });
+      } catch (err) {
+        playerRef.current = new (window as any).JSMpeg.Player(wsUrl, {
+          canvas: canvasRef.current,
+          autoplay: true,
+          audio: false
+        });
+        setIsMuted(true);
+        isMutedRef.current = true;
+      }
+      
       setIsPlaying(true);
+      isPlayingRef.current = true;
       setIsPaused(false);
+      resetControlsTimeout(); 
       startProgressTracker(totalSec, offsetSeconds);
     } catch (e) {
       console.error("JSMpeg Error:", e);
       showNotification('ไม่สามารถเชื่อมต่อสตรีมวิดีโอได้');
+    }
+  };
+
+  const handleSkip = (deltaSeconds: number) => {
+    if (!selectedSegmentRef.current || !isPlayingRef.current) return;
+    
+    const currentOffset = elapsedSecondsRef.current;
+    const totalSec = totalDurationSecondsRef.current;
+    
+    let newOffset = currentOffset + deltaSeconds;
+    if (newOffset < 0) newOffset = 0;
+    if (newOffset >= totalSec) newOffset = totalSec - 1;
+
+    setSkipIndicator(deltaSeconds > 0 ? 'forward' : 'backward');
+    if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+    skipTimeoutRef.current = setTimeout(() => setSkipIndicator(null), 800);
+
+    startStreamAtSegment(selectedSegmentRef.current, newOffset);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isPlayingRef.current && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault(); 
+        if (e.key === 'ArrowRight') handleSkip(5);
+        else if (e.key === 'ArrowLeft') handleSkip(-5);
+        resetControlsTimeout();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleVideoInteraction = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!selectedSegmentRef.current || !isPlayingRef.current) return;
+
+    const currentTime = new Date().getTime();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const side = clickX < rect.width / 2 ? 'left' : 'right';
+
+    if (lastTapRef.current && currentTime - lastTapRef.current.time < 300) {
+      if (singleTapTimeoutRef.current) clearTimeout(singleTapTimeoutRef.current);
+      handleSkip(side === 'right' ? 5 : -5);
+      lastTapRef.current = null;
+      resetControlsTimeout(); 
+    } else {
+      lastTapRef.current = { time: currentTime, side };
+      if (singleTapTimeoutRef.current) clearTimeout(singleTapTimeoutRef.current);
+      
+      singleTapTimeoutRef.current = setTimeout(() => {
+        setShowControls(prev => {
+          if (!prev) resetControlsTimeout(); 
+          else if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); 
+          return !prev;
+        });
+        lastTapRef.current = null;
+      }, 300);
     }
   };
 
@@ -215,9 +314,12 @@ export default function CCTVPlayback() {
     if (isPaused) {
       playerRef.current.play();
       setIsPaused(false);
+      resetControlsTimeout();
     } else {
       playerRef.current.pause();
       setIsPaused(true);
+      setShowControls(true); 
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     }
   };
 
@@ -229,6 +331,8 @@ export default function CCTVPlayback() {
       if (!isPaused) {
         elapsed += 1;
         setElapsedSeconds(elapsed);
+        elapsedSecondsRef.current = elapsed;
+        
         const progress = Math.min((elapsed / totalSec) * 100, 100);
         setPlaybackProgress(progress);
         if (elapsed >= totalSec) {
@@ -244,10 +348,15 @@ export default function CCTVPlayback() {
       playerRef.current = null;
     }
     if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    
     setIsPlaying(false);
+    isPlayingRef.current = false;
     setIsPaused(false);
     setPlaybackProgress(0);
     setElapsedSeconds(0);
+    elapsedSecondsRef.current = 0;
+    setShowControls(true);
 
     if (canvasRef.current) {
       canvasRef.current.width = canvasRef.current.width;
@@ -255,11 +364,13 @@ export default function CCTVPlayback() {
   };
 
   const toggleMute = () => {
-    const nextMuteState = !isMuted;
+    const nextMuteState = !isMutedRef.current;
     setIsMuted(nextMuteState);
+    isMutedRef.current = nextMuteState;
     if (playerRef.current && playerRef.current.audioOut && playerRef.current.audioOut.destinationNode) {
       playerRef.current.audioOut.destinationNode.gain.value = nextMuteState ? 0 : 1;
     }
+    resetControlsTimeout();
   };
 
   const formatTimeCounter = (sec: number) => {
@@ -294,6 +405,7 @@ export default function CCTVPlayback() {
     } else {
       document.exitFullscreen();
     }
+    resetControlsTimeout();
   };
 
   const getTimelineStyle = (startStr: string, endStr: string) => {
@@ -418,11 +530,39 @@ export default function CCTVPlayback() {
                 <h3 className="text-lg font-bold text-gray-800">Playback Viewer</h3>
               </div>
               
-              <div ref={videoContainerRef} className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white mb-6 overflow-hidden relative group">
+              <div 
+                ref={videoContainerRef} 
+                className="bg-black w-full aspect-video rounded-2xl flex items-center justify-center text-white mb-6 overflow-hidden relative group"
+                onMouseMove={() => { if (isPlayingRef.current) resetControlsTimeout(); }}
+                onMouseLeave={() => { if (isPlayingRef.current && !isPaused) setShowControls(false); }}
+              >
                 <canvas ref={canvasRef} className="w-full h-full block bg-black"></canvas>
 
+                <div 
+                  className="absolute inset-0 z-10 cursor-pointer" 
+                  onClick={handleVideoInteraction}
+                />
+
+                {skipIndicator === 'backward' && (
+                  <div className="absolute left-10 md:left-20 top-1/2 -translate-y-1/2 bg-black/60 text-white rounded-full p-4 md:p-5 flex flex-col items-center justify-center animate-pulse pointer-events-none z-30 shadow-2xl">
+                    <ChevronLeft size={36} strokeWidth={3} />
+                    <span className="text-[10px] md:text-xs font-bold mt-1">-5 วิ</span>
+                  </div>
+                )}
+                {skipIndicator === 'forward' && (
+                  <div className="absolute right-10 md:right-20 top-1/2 -translate-y-1/2 bg-black/60 text-white rounded-full p-4 md:p-5 flex flex-col items-center justify-center animate-pulse pointer-events-none z-30 shadow-2xl">
+                    <ChevronRight size={36} strokeWidth={3} />
+                    <span className="text-[10px] md:text-xs font-bold mt-1">+5 วิ</span>
+                  </div>
+                )}
+
                 {isPlaying && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div 
+                    className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 flex flex-col gap-2 transition-opacity duration-300 ${
+                      showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                    }`}
+                    onClick={(e) => e.stopPropagation()} 
+                  >
                     <div 
                       className="w-full bg-white/30 h-1.5 rounded-full cursor-pointer relative overflow-hidden"
                       onClick={(e) => {
@@ -432,6 +572,7 @@ export default function CCTVPlayback() {
                         const percentage = Math.max(0, Math.min(1, clickX / rect.width));
                         const offsetSec = totalDurationSeconds * percentage;
                         startStreamAtSegment(selectedSegment, offsetSec);
+                        resetControlsTimeout();
                       }}
                     >
                       <div className="absolute top-0 left-0 h-full bg-red-500" style={{ width: `${playbackProgress}%` }}></div>
@@ -439,10 +580,10 @@ export default function CCTVPlayback() {
 
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-3">
-                        <button onClick={togglePlayPause} className="hover:text-red-400 transition-colors">
+                        <button onClick={togglePlayPause} className="hover:text-red-400 transition-colors p-1">
                           {isPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
                         </button>
-                        <button onClick={toggleMute} className="hover:text-red-400 transition-colors">
+                        <button onClick={toggleMute} className="hover:text-red-400 transition-colors p-1">
                           {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                         </button>
                         <span className="font-mono text-white/90">
@@ -450,7 +591,7 @@ export default function CCTVPlayback() {
                         </span>
                       </div>
 
-                      <button onClick={toggleFullscreen} className="hover:text-red-400 transition-colors flex items-center gap-1">
+                      <button onClick={toggleFullscreen} className="hover:text-red-400 transition-colors flex items-center gap-1 p-1">
                         <Maximize size={16} /> เต็มจอ
                       </button>
                     </div>
@@ -458,38 +599,73 @@ export default function CCTVPlayback() {
                 )}
 
                 {!isPlaying && (
-                   <div className="absolute inset-0 flex items-center justify-center text-white/50 font-bold text-sm md:text-base text-center px-4 pointer-events-none">
+                   <div className="absolute inset-0 flex items-center justify-center text-white/50 font-bold text-sm md:text-base text-center px-4 pointer-events-none z-0">
                      {selectedSegment ? 'กดปุ่ม Play เพื่อเริ่มเล่น' : 'กรุณาค้นหาและเลือกช่วงเวลา'}
                    </div>
                 )}
               </div>
 
+              {/* ✅ ส่วนที่อัปเกรดใหม่: เพิ่มรายการปุ่ม "คลิปวิดีโอ" สำหรับมือถือโดยเฉพาะ */}
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                {recordings.length > 0 ? (
+                  <div className="mb-5">
+                    <div className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
+                      <Video size={14} className="text-blue-500" /> เลือกเปิดภาพย้อนหลังตามช่วงเวลา
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar snap-x touch-pan-x">
+                      {recordings.map((rec, idx) => (
+                        <button
+                          key={`clip-${idx}`}
+                          onClick={() => {
+                            setSelectedSegment(rec);
+                            setPlaybackProgress(0);
+                            startStreamAtSegment(rec, 0);
+                          }}
+                          className={`shrink-0 snap-start px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                            selectedSegment?.id === rec.id
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
+                          }`}
+                        >
+                          <Clock size={12} className="inline mr-1.5 opacity-70" />
+                          {rec.start.split('T')[1].substring(0, 5)} - {rec.end.split('T')[1].substring(0, 5)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* ✅ ส่วนที่อัปเกรดใหม่: ทำให้ Timeline ปัดซ้ายขวาได้ เพื่อขยายพื้นที่ให้กดง่ายขึ้น */}
                 <div className="text-xs font-bold text-gray-400 mb-2 flex justify-between">
-                  <span>Timeline (24 ชั่วโมง) - คลิกแถบสีฟ้าเพื่อเลือกช่วงเวลา</span>
+                  <span>Timeline</span>
                   {isPlaying && <span className="text-blue-600 font-mono">{playbackProgress.toFixed(0)}%</span>}
                 </div>
                 
-                <div className="h-16 bg-gray-200 rounded-lg relative overflow-hidden cursor-pointer shadow-inner">
-                  {recordings.map((rec) => (
-                    <div 
-                      key={rec.id}
-                      className={`absolute h-full bg-blue-500/60 border-r border-white/50 transition-all hover:opacity-100 cursor-pointer ${selectedSegment?.id === rec.id ? 'bg-blue-600 shadow-[0_0_0_2px_white_inset]' : ''}`}
-                      style={getTimelineStyle(rec.start, rec.end)}
-                      onClick={(e) => handleTimelineClick(e, rec)}
-                      title={`คลิกเพื่อเล่นช่วง: ${rec.start} - ${rec.end}`}
-                    >
-                      {selectedSegment?.id === rec.id && isPlaying && (
+                <div className="overflow-x-auto pb-2 custom-scrollbar touch-pan-x">
+                  {/* ขยายความกว้างขั้นต่ำ 600px เพื่อให้ไม่เบียดกันในมือถือ */}
+                  <div className="min-w-[600px] md:min-w-full">
+                    <div className="h-16 bg-gray-200 rounded-lg relative overflow-hidden cursor-pointer shadow-inner">
+                      {recordings.map((rec) => (
                         <div 
-                          className="absolute top-0 left-0 h-full bg-blue-400/40 pointer-events-none border-r-2 border-white"
-                          style={{ width: `${playbackProgress}%` }}
-                        />
-                      )}
+                          key={rec.id}
+                          className={`absolute h-full bg-blue-500/60 border-r border-white/50 transition-all hover:opacity-100 cursor-pointer ${selectedSegment?.id === rec.id ? 'bg-blue-600 shadow-[0_0_0_2px_white_inset]' : ''}`}
+                          style={getTimelineStyle(rec.start, rec.end)}
+                          onClick={(e) => handleTimelineClick(e, rec)}
+                          title={`คลิกเพื่อเล่นช่วง: ${rec.start} - ${rec.end}`}
+                        >
+                          {selectedSegment?.id === rec.id && isPlaying && (
+                            <div 
+                              className="absolute top-0 left-0 h-full bg-blue-400/40 pointer-events-none border-r-2 border-white"
+                              style={{ width: `${playbackProgress}%` }}
+                            />
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-between text-[10px] text-gray-400 mt-2 font-mono">
-                  <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-2 font-mono">
+                      <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
