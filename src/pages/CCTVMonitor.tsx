@@ -30,6 +30,9 @@ export default function CCTVMonitor() {
   // ✅ Refs สำหรับ Lock การยิงคำสั่ง ไม่ให้คิวชนกัน (ป้องกันการ Pending)
   const isFetchingStatus = useRef(false);
   const lastCommand = useRef<string | null>(null);
+  
+  // ✅ เพิ่ม Ref สำหรับ AbortController (เอาไว้ตัดสายคำสั่งที่ค้าง)
+  const ptzAbortController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (camera && camera.name && currentUser) {
@@ -38,7 +41,7 @@ export default function CCTVMonitor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera?.id]);
 
-  // ✅ 1. โหลดข้อมูลกล้องแค่ "ครั้งเดียว" ตอนเปิดหน้าต่าง (ลดภาระเซิร์ฟเวอร์)
+  // โหลดข้อมูลกล้องแค่ "ครั้งเดียว" ตอนเปิดหน้าต่าง
   useEffect(() => {
     let isCancelled = false;
     
@@ -71,12 +74,11 @@ export default function CCTVMonitor() {
     return () => { isCancelled = true; };
   }, [nodeId]);
 
-  // ✅ 2. อัปเดตสถานะแบบมี Lock (ถ้าอันเก่ายังไม่เสร็จ จะข้ามรอบนั้นไปเลย ทราฟฟิกจะไม่ตัน)
+  // อัปเดตสถานะแบบมี Lock
   useEffect(() => {
     let isCancelled = false;
 
     const pollStatus = async () => {
-      // ถ้ากำลังดึงสถานะอยู่แล้วค้าง ให้ข้ามไปเลย เพื่อกันคิวเบราว์เซอร์เต็ม
       if (isFetchingStatus.current || isCancelled) return; 
       isFetchingStatus.current = true;
 
@@ -93,22 +95,29 @@ export default function CCTVMonitor() {
       }
     };
 
-    pollStatus(); // เช็กครั้งแรก
-    const interval = setInterval(pollStatus, 8000); // ดึงข้อมูลทุกๆ 8 วินาที
+    pollStatus(); 
+    const interval = setInterval(pollStatus, 8000); 
     return () => {
       isCancelled = true;
       clearInterval(interval);
     };
   }, [nodeId]);
 
-  // ✅ 3. ระบบควบคุม PTZ พร้อมตัวกันสแปม (Anti-spam)
+  // ✅ ระบบควบคุม PTZ พร้อมตัวตัดสาย (Abort)
   const handlePTZ = useCallback(async (command: string) => {
     if (!camera || !camera.ptz_ip || !isNodeOnline) return;
     
-    // ป้องกันการส่งคำสั่งซ้ำๆ ติดกัน เช่น กดปุ่มค้างไว้ (แต่ยอมให้ส่งคำสั่ง stop ได้เสมอ)
     if (command !== 'stop' && lastCommand.current === command) return;
     lastCommand.current = command;
     
+    // 🔴 ถ้ายิงคำสั่งใหม่เข้ามา แล้วคำสั่งเก่ายังค้าง (Pending) อยู่ ให้ตัดทิ้งทันที!
+    if (ptzAbortController.current) {
+      ptzAbortController.current.abort();
+    }
+    
+    // สร้าง Controller ตัวใหม่สำหรับรอบนี้
+    ptzAbortController.current = new AbortController();
+
     try {
       const payload = {
         action: command === 'stop' ? 'stop' : 'move',
@@ -123,15 +132,20 @@ export default function CCTVMonitor() {
       await fetch(`${API_URL}/ptz_proxy.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: ptzAbortController.current.signal // 🔴 ผูก Signal ไว้กับตัวตัดสาย
       });
       
-      // เมื่อสั่ง stop เรียบร้อย ให้ปลดล็อกคำสั่งเพื่อกดใหม่ได้
       if (command === 'stop') {
         lastCommand.current = null;
       }
-    } catch (error) {
-      console.error("PTZ Control Error:", error);
+    } catch (error: any) { // ใช้ any เพื่อเข้าถึง property .name
+      // 🔴 ถ้า Error เกิดจากการที่เราสั่งตัดสาย (Abort) ไม่ต้องตกใจและไม่ต้องแจ้งเตือน
+      if (error.name === 'AbortError') {
+        console.log(`เคลียร์คำสั่งที่ค้างสำเร็จ (เปลี่ยนเป็น: ${command})`);
+      } else {
+        console.error("PTZ Control Error:", error);
+      }
       if (command === 'stop') lastCommand.current = null;
     }
   }, [camera, isNodeOnline]);
