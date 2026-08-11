@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Square, VideoOff, Video
@@ -27,6 +27,10 @@ export default function CCTVMonitor() {
   const [isNodeOnline, setIsNodeOnline] = useState(true); 
   const [isLoading, setIsLoading] = useState(true);
 
+  // ✅ Refs สำหรับ Lock การยิงคำสั่ง ไม่ให้คิวชนกัน (ป้องกันการ Pending)
+  const isFetchingStatus = useRef(false);
+  const lastCommand = useRef<string | null>(null);
+
   useEffect(() => {
     if (camera && camera.name && currentUser) {
       logAction(currentUser.name, 'ดูกล้องวงจรปิด', camera.name);
@@ -34,8 +38,12 @@ export default function CCTVMonitor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera?.id]);
 
+  // ✅ 1. โหลดข้อมูลกล้องแค่ "ครั้งเดียว" ตอนเปิดหน้าต่าง (ลดภาระเซิร์ฟเวอร์)
   useEffect(() => {
-    const fetchData = async () => {
+    let isCancelled = false;
+    
+    const fetchCameraOnce = async () => {
+      setIsLoading(true);
       try {
         const camRes = await fetch(`${API_URL}/get_cameras.php`);
         const camData = await camRes.json();
@@ -47,37 +55,59 @@ export default function CCTVMonitor() {
           cameraList = camData.data;
         }
 
-        const idMapping: { [key: string]: string } = {
-          "8": "7", 
-        };
-
+        const idMapping: { [key: string]: string } = { "8": "7" };
         const targetCamId = idMapping[String(nodeId)] || String(nodeId);
-
         const found = cameraList.find((c: Camera) => c.id.toString() === targetCamId);
-        setCamera(found || null);
-
-        const statusRes = await fetch(`${API_URL}/get_node_status.php?id=${nodeId}`);
-        const statusData = await statusRes.json();
-        if (statusData.status === 'success') {
-          setIsNodeOnline(statusData.online); 
-        } else {
-          setIsNodeOnline(false);
-        }
+        
+        if (!isCancelled) setCamera(found || null);
       } catch (error) {
-        console.error("Error fetching data:", error);
-        setIsNodeOnline(false);
+        console.error("Error fetching camera:", error);
       } finally {
-        setIsLoading(false);
+        if (!isCancelled) setIsLoading(false);
       }
     };
-    
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+
+    fetchCameraOnce();
+    return () => { isCancelled = true; };
   }, [nodeId]);
 
+  // ✅ 2. อัปเดตสถานะแบบมี Lock (ถ้าอันเก่ายังไม่เสร็จ จะข้ามรอบนั้นไปเลย ทราฟฟิกจะไม่ตัน)
+  useEffect(() => {
+    let isCancelled = false;
+
+    const pollStatus = async () => {
+      // ถ้ากำลังดึงสถานะอยู่แล้วค้าง ให้ข้ามไปเลย เพื่อกันคิวเบราว์เซอร์เต็ม
+      if (isFetchingStatus.current || isCancelled) return; 
+      isFetchingStatus.current = true;
+
+      try {
+        const statusRes = await fetch(`${API_URL}/get_node_status.php?id=${nodeId}`);
+        const statusData = await statusRes.json();
+        if (!isCancelled) {
+          setIsNodeOnline(statusData.status === 'success' && statusData.online); 
+        }
+      } catch (error) {
+        if (!isCancelled) setIsNodeOnline(false);
+      } finally {
+        isFetchingStatus.current = false;
+      }
+    };
+
+    pollStatus(); // เช็กครั้งแรก
+    const interval = setInterval(pollStatus, 8000); // ดึงข้อมูลทุกๆ 8 วินาที
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [nodeId]);
+
+  // ✅ 3. ระบบควบคุม PTZ พร้อมตัวกันสแปม (Anti-spam)
   const handlePTZ = useCallback(async (command: string) => {
     if (!camera || !camera.ptz_ip || !isNodeOnline) return;
+    
+    // ป้องกันการส่งคำสั่งซ้ำๆ ติดกัน เช่น กดปุ่มค้างไว้ (แต่ยอมให้ส่งคำสั่ง stop ได้เสมอ)
+    if (command !== 'stop' && lastCommand.current === command) return;
+    lastCommand.current = command;
     
     try {
       const payload = {
@@ -90,19 +120,19 @@ export default function CCTVMonitor() {
         speed: 0.5
       };
 
-      const response = await fetch(`${API_URL}/ptz_proxy.php`, {
+      await fetch(`${API_URL}/ptz_proxy.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       
-      const result = await response.json();
-      
-      if (!result.success) {
-        console.error("PTZ Command Failed:", result.error);
+      // เมื่อสั่ง stop เรียบร้อย ให้ปลดล็อกคำสั่งเพื่อกดใหม่ได้
+      if (command === 'stop') {
+        lastCommand.current = null;
       }
     } catch (error) {
       console.error("PTZ Control Error:", error);
+      if (command === 'stop') lastCommand.current = null;
     }
   }, [camera, isNodeOnline]);
 
@@ -152,7 +182,6 @@ export default function CCTVMonitor() {
   if (!camera) return <div className="flex-1 h-screen flex items-center justify-center font-bold text-red-500">ไม่พบข้อมูลกล้องในระบบ</div>;
 
   return (
-    // บังคับความสูงเต็มหน้าจอและซ่อนการ Scroll
     <main className="p-4 md:p-6 bg-gray-100 h-[calc(100vh-60px)] md:h-screen font-sans flex flex-col overflow-hidden">
       <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col min-h-0">
         
@@ -163,10 +192,9 @@ export default function CCTVMonitor() {
           <ArrowLeft size={20} /> กลับ
         </button>
 
-        {/* แบ่งเลย์เอาต์: มือถือเรียงบนล่าง / คอมเรียงซ้ายขวา */}
         <div className="flex flex-col lg:flex-row gap-4 md:gap-6 flex-1 min-h-0">
           
-          {/* 1. กล่องวิดีโอ (กินพื้นที่ที่เหลือทั้งหมด) */}
+          {/* 1. กล่องวิดีโอ */}
           <div className="flex-1 lg:flex-[2.5] bg-white rounded-2xl md:rounded-[32px] shadow-xl overflow-hidden border border-gray-100 flex flex-col min-h-0">
             <div className={`${isNodeOnline ? 'bg-[#48A0D8]' : 'bg-gray-600'} p-3 md:p-5 flex justify-between items-center text-white transition-colors shrink-0`}>
               <div className="flex items-center gap-2 md:gap-3 truncate pr-2">
@@ -181,7 +209,6 @@ export default function CCTVMonitor() {
               </button>
             </div>
 
-            {/* กล่องใส่ Iframe ที่จะขยายเต็มพื้นที่ ลบขอบดำทิ้ง */}
             <div className="w-full flex-1 relative bg-[#0b0f19] flex items-center justify-center min-h-[200px]">
               {!isNodeOnline ? (
                 <div className="text-center text-white flex flex-col items-center">
@@ -201,7 +228,7 @@ export default function CCTVMonitor() {
             </div>
           </div>
 
-          {/* 2. กล่องควบคุม PTZ (Fix ความกว้างบนจอคอม) */}
+          {/* 2. กล่องควบคุม PTZ */}
           <div className={`w-full lg:w-[340px] shrink-0 bg-white rounded-2xl md:rounded-[32px] shadow-xl border border-gray-100 p-4 md:p-6 flex flex-col justify-center items-center transition-opacity ${!isNodeOnline ? 'opacity-50 pointer-events-none' : ''}`}>
              <h4 className="font-bold text-gray-700 mb-4 md:mb-6 flex items-center gap-2 text-sm md:text-base">
                <i className="fas fa-gamepad text-[#48A0D8]"></i> ควบคุมทิศทางกล้อง
