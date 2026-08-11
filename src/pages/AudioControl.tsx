@@ -134,7 +134,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
   const [showSchedule, setShowSchedule] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // ✅ เพิ่มฟังก์ชันนี้เพื่อยิงไปดึงค่าระดับเสียงล่าสุดจาก Database ทุกครั้งที่เปิด Sidebar
   useEffect(() => {
     let isMounted = true;
 
@@ -148,7 +147,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
         if (isMounted && currentNode && currentNode.last_volume != null) {
           setVolume(Number(currentNode.last_volume));
         } else if (isMounted) {
-          // ถ้าไม่มีค่าใน DB ค่อยกลับไปใช้ 80
           setVolume(Number((node as any).last_volume ?? node.volume ?? 80));
         }
       } catch (err) {
@@ -305,7 +303,6 @@ function AudioSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }
 
   return (
     <>
-      {/* แก้ไขให้ Sidebar รองรับ Mobile */}
       <div className="w-full md:w-[360px] absolute md:relative inset-y-0 right-0 shrink-0 h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-gray-200 flex flex-col z-[1000] md:z-10 transition-all duration-300">
         
         <div className="bg-white px-6 py-6 border-b border-gray-100 flex flex-col relative shrink-0">
@@ -492,7 +489,7 @@ export default function AudioControl() {
   );
 }
 
-// --- Schedule Modal (ปรับแก้ Responsive) ---
+// --- Schedule Modal ---
 function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string[], onClose: () => void }) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -502,6 +499,9 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
   const [newTime, setNewTime] = useState('');
   const [newFile, setNewFile] = useState('');
   const [newVolume, setNewVolume] = useState('80');
+
+  // ✅ เพิ่ม State สำหรับจัดการ Custom Confirm Dialog
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const fetchSchedules = async () => {
     setIsLoading(true);
@@ -546,12 +546,13 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
     }
   };
 
-  const handleDelete = async (scheduleId: number) => {
-    if (!confirm('ต้องการลบเวลานี้ใช่หรือไม่?')) return;
+  // ✅ เปลี่ยนมาใช้ฟังก์ชันนี้เวลายืนยันการลบแล้ว
+  const executeDelete = async () => {
+    if (confirmDeleteId === null) return;
     setIsSaving(true);
     try {
       const formData = new FormData();
-      formData.append('id', scheduleId.toString());
+      formData.append('id', confirmDeleteId.toString());
       formData.append('node_id', node.id);
       formData.append('ip', node.ip);
       formData.append('port', node.port);
@@ -563,12 +564,12 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
       console.error("Error deleting schedule:", error);
     } finally {
       setIsSaving(false);
+      setConfirmDeleteId(null); // ปิด popup
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      {/* เพิ่มโครงสร้างให้ Modal จำกัดความสูง และ Scroll ได้ */}
       <div className="bg-[#F8FAFC] w-full max-w-4xl max-h-[95vh] rounded-3xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col">
         
         <div className="bg-white border-b border-gray-100 p-4 md:p-5 flex justify-between items-center text-gray-900 shrink-0">
@@ -581,14 +582,12 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
           </button>
         </div>
         
-        {/* ส่วนเนื้อหาหลักที่เลื่อนขึ้นลงได้ */}
         <div className="p-4 md:p-8 overflow-y-auto">
-          {/* ฟอร์มกรอกข้อมูล - เปลี่ยนจาก grid-cols-4 เป็น responsive 1/2/4 คอลัมน์ */}
           <div className="bg-white border border-gray-200 p-4 md:p-6 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6 md:mb-8 relative shadow-sm">
              {isSaving && (
                <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
                  <div className="font-bold text-[#48A0D8] animate-pulse flex items-center gap-2">
-                    <Clock size={18} className="animate-spin" /> กำลังส่งข้อมูลไปยังเสา...
+                    <Clock size={18} className="animate-spin" /> กำลังประมวลผล...
                  </div>
                </div>
              )}
@@ -619,7 +618,6 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
             + เพิ่มตารางเวลา
           </button>
 
-          {/* ตารางเวลา - เพิ่ม Wrapper ให้ Scroll แนวนอนได้ในจอมือถือ */}
           <div className="mt-6 md:mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-h-[150px]">
              <div className="overflow-x-auto">
                 <div className="min-w-[600px]">
@@ -643,7 +641,12 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
                           <div className="col-span-3 text-gray-600 truncate pr-2" title={s.file}>{s.file}</div>
                           <div className="col-span-2 text-[#48A0D8] font-bold">{s.volume}%</div>
                           <div className="col-span-1 text-center">
-                             <button onClick={() => handleDelete(s.id)} disabled={isSaving} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                             <button 
+                               // ✅ เปลี่ยนมาเป็นการเปิด Custom Popup
+                               onClick={() => setConfirmDeleteId(s.id)} 
+                               disabled={isSaving} 
+                               className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                             >
                                 <Trash2 size={18}/>
                              </button>
                           </div>
@@ -655,6 +658,40 @@ function ScheduleModal({ node, files, onClose }: { node: NodeItem, files: string
           </div>
         </div>
       </div>
+
+      {/* ✅ Custom Confirm Delete Modal (สไตล์มินิมอล) */}
+      {confirmDeleteId !== null && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 transition-all">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 transition-transform">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-extrabold text-gray-900 mb-2">ยืนยันการลบ?</h3>
+              <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                คุณแน่ใจหรือไม่ว่าต้องการลบตารางเวลานี้?<br/>การกระทำนี้ไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+            <div className="flex border-t border-gray-100">
+              <button 
+                onClick={() => setConfirmDeleteId(null)}
+                disabled={isSaving}
+                className="flex-1 py-4 text-sm font-bold text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <div className="w-[1px] bg-gray-100"></div>
+              <button 
+                onClick={executeDelete}
+                disabled={isSaving}
+                className="flex-1 py-4 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                {isSaving ? 'กำลังลบ...' : 'ลบตารางเวลา'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
