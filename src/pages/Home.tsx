@@ -2,13 +2,10 @@ import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
-// ✅ Import ไอคอน Focus สำหรับทำปุ่มรีเซ็นเตอร์
 import { Share, X, Zap, Activity, Gauge, BatteryCharging, Focus } from 'lucide-react'; 
 import { useNodes, type NodeItem } from '../context/NodeContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
-
-const TB_URL = "http://theoneiot.i234.me:9090";
 
 // --- AutoFit Component (ทำงานตอนโหลดครั้งแรก) ---
 function AutoFit() {
@@ -25,7 +22,7 @@ function AutoFit() {
   return null;
 }
 
-// ✅ สร้าง component สำหรับปุ่ม Recenter (ซูมกลับมาหาเสาทั้งหมด)
+// --- สร้าง component สำหรับปุ่ม Recenter (ซูมกลับมาหาเสาทั้งหมด) ---
 function RecenterControl({ nodes }: { nodes: NodeItem[] }) {
   const map = useMap();
 
@@ -123,11 +120,11 @@ function PoleMarker({
 }
 
 // --- NodeSidebar Component ---
-function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; onClose: () => void }) {
+function NodeSidebar({ node, onClose }: { node: NodeItem; onClose: () => void }) {
   const navigate = useNavigate();
   const [statusData, setStatusData] = useState<any>({
     online: false,
-    data: { voltage: '-', current: '-', power: '-', energy: '-', battery_pct: null }
+    data: { voltage: '-', current: '-', power: '-', battery_pct: null }
   });
 
   useEffect(() => {
@@ -139,31 +136,9 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
         const result = await res.json();
         
         if (isMounted && result.status === 'success') {
-          let energyVal = result.data?.energy || '-';
-          const tbDeviceId = result.tb_device_id;
-
-          if (tbDeviceId && token && result.online) {
-            try {
-              const rTb = await fetch(
-                `${TB_URL}/api/plugins/telemetry/DEVICE/${tbDeviceId}/values/timeseries?keys=energy`,
-                { headers: { "X-Authorization": "Bearer " + token } }
-              );
-              const dTb = await rTb.json();
-              const eRaw = dTb.energy?.[0]?.value;
-              if (eRaw !== undefined) {
-                energyVal = parseFloat(eRaw).toString();
-              }
-            } catch (tbErr) {
-              console.error(`Failed to fetch Energy from ThingsBoard for Node ${node.id}:`, tbErr);
-            }
-          }
-
           setStatusData({
             online: result.online,
-            data: {
-              ...(result.data || { voltage: '-', current: '-', power: '-', energy: '-', battery_pct: null }),
-              energy: energyVal
-            }
+            data: result.data || { voltage: '-', current: '-', power: '-', battery_pct: null }
           });
         }
       } catch (err) {
@@ -178,7 +153,7 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [node.id, token]);
+  }, [node.id]);
 
   const { online, data } = statusData;
 
@@ -240,6 +215,7 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
           Real-time Monitor
         </p>
         
+        {/* ✅ ลบการ์ด Energy (Wh) ออก เหลือแค่ 3 ช่อง */}
         <div className="flex flex-col gap-3.5">
           <DataCard 
             title="Voltage" value={data.voltage} unit="V" 
@@ -252,10 +228,6 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
           <DataCard 
             title="Power" value={data.power} unit="W" 
             icon={<Gauge size={22} />} colorClass="text-purple-500" bgClass="bg-purple-50"
-          />
-          <DataCard 
-            title="Energy" value={data.energy} unit="Wh" 
-            icon={<BatteryCharging size={22} />} colorClass="text-green-500" bgClass="bg-green-50"
           />
         </div>
 
@@ -277,25 +249,7 @@ function NodeSidebar({ node, token, onClose }: { node: NodeItem; token: string; 
 // --- Main Page ---
 export default function Home() {
   const { nodes } = useNodes();
-  const [token, setToken] = useState<string>('');
   const [selectedNode, setSelectedNode] = useState<NodeItem | null>(null);
-
-  useEffect(() => {
-    const login = async () => {
-      try {
-        const r = await fetch(TB_URL + "/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: "tenant@thingsboard.org", password: "tenant" })
-        });
-        const data = await r.json();
-        setToken(data.token);
-      } catch (error) {
-        console.error("ThingsBoard Central Login Error:", error);
-      }
-    };
-    login();
-  }, []);
 
   return (
     <main className="flex-1 h-[calc(100vh-72px)] md:h-screen relative bg-[#F8FAFC] flex overflow-hidden">
@@ -305,7 +259,6 @@ export default function Home() {
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
           <AutoFit />
           
-          {/* ✅ วางปุ่ม Recenter Control ตรงนี้ */}
           <RecenterControl nodes={nodes} />
 
           {nodes.map((node) => (
@@ -320,7 +273,7 @@ export default function Home() {
       </div>
 
       {selectedNode && (
-        <NodeSidebar node={selectedNode} token={token} onClose={() => setSelectedNode(null)} />
+        <NodeSidebar node={selectedNode} onClose={() => setSelectedNode(null)} />
       )}
 
     </main>
