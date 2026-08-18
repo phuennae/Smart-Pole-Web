@@ -9,7 +9,7 @@ import 'leaflet/dist/leaflet.css';
 import { API_URL } from '../config';
 
 // 🌐 URL สำหรับส่งสตรีมมิ่งเสียง (WebSocket) ไปยัง Server 
-const STREAM_WS_URL = "ws://theoneiot.i234.me:3000"; 
+const STREAM_WS_URL = "ws://smartpolecontrol.com:3000"; 
 
 // --- AutoFit Component ---
 function AutoFit() {
