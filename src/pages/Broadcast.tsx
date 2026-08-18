@@ -9,7 +9,7 @@ import 'leaflet/dist/leaflet.css';
 import { API_URL } from '../config';
 
 // 🌐 URL สำหรับส่งสตรีมมิ่งเสียง (WebSocket) ไปยัง Server 
-const STREAM_WS_URL = "ws://theoneiot.i234.me:3000"; 
+const STREAM_WS_URL = "ws://tubkwang.smartpolecontrol.com:3000";
 
 // --- AutoFit Component ---
 function AutoFit() {
@@ -395,8 +395,9 @@ export default function Broadcast() {
             const isOnline = onlineStatuses[node.id] === true;
             
             const statusDot = isOnline ? 'bg-[#76E136]' : 'bg-red-500';
+            // เปลี่ยนสีเงาตอนถูกเลือกเป็นสีน้ำตาล rgba(155,118,94,0.9)
             const filterStyle = isOnline 
-              ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
+              ? (isSelected ? 'drop-shadow(0 0 10px rgba(155,118,94,0.9))' : 'none') 
               : 'grayscale(100%) opacity(60%)';
 
             const icon = L.divIcon({
@@ -404,7 +405,7 @@ export default function Broadcast() {
               html: `
                 <div style="display: flex; flex-direction: column; align-items: center; width: 100px; transition: all 0.3s; cursor: ${isOnline ? 'pointer' : 'not-allowed'}; transform: ${isSelected ? 'scale(1.05)' : 'scale(1)'}">
                   <img src="/pole.png" style="width: 40px; height: 80px; object-fit: contain; filter: ${filterStyle};" />
-                  <div class="${isSelected ? 'bg-[#48A0D8]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors">
+                  <div class="${isSelected ? 'bg-[#9b765e]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors">
                     <div class="w-1.5 h-1.5 rounded-full ${statusDot} ${isOnline && isSelected ? 'animate-pulse' : ''}"></div>
                     ${node.name}
                   </div>
@@ -438,9 +439,9 @@ export default function Broadcast() {
         >
           <div className="flex flex-col">
             <h2 className="font-extrabold text-xl md:text-2xl text-gray-900 tracking-tight flex items-center gap-2">
-              <Radio size={24} className="text-[#48A0D8]" /> Broadcast
+              <Radio size={24} className="text-[#9b765e]" /> Broadcast
             </h2>
-            <p className="text-[10px] md:text-xs text-[#48A0D8] bg-[#F0F7FF] px-2 py-0.5 rounded-md mt-1.5 font-bold tracking-wide self-start border border-[#D0E6FB]">
+            <p className="text-[10px] md:text-xs text-[#9b765e] bg-[#fdf8f5] px-2 py-0.5 rounded-md mt-1.5 font-bold tracking-wide self-start border border-[#e8d5c8]">
               เลือกแล้ว {selectedNodes.size} / {onlineCount} พื้นที่
             </p>
           </div>
@@ -485,7 +486,7 @@ export default function Broadcast() {
             <div className="flex gap-2">
               <button 
                 onClick={handleSelectAll} 
-                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-[#E5F3FF] hover:border-[#48A0D8] hover:text-[#48A0D8] transition-all text-gray-600 active:scale-95 touch-manipulation"
+                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold border border-gray-200 py-2.5 rounded-xl hover:bg-[#fdf8f5] hover:border-[#9b765e] hover:text-[#9b765e] transition-all text-gray-600 active:scale-95 touch-manipulation"
               >
                 <CheckSquare size={16} /> ทั้งหมด
               </button>
@@ -506,7 +507,7 @@ export default function Broadcast() {
           <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 md:p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${isBroadcasting ? 'bg-red-100 text-red-500 animate-pulse' : 'bg-blue-50 text-blue-500'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${isBroadcasting ? 'bg-red-100 text-red-500 animate-pulse' : 'bg-[#fdf8f5] text-[#9b765e]'}`}>
                   <Mic size={16} />
                 </div>
                 <div>
@@ -521,13 +522,13 @@ export default function Broadcast() {
               <div className="mb-4">
                 <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
                   <span>ระดับเสียงไมโครโฟน</span>
-                  <span className={micVolume > 5 ? 'text-[#48A0D8]' : ''}>
+                  <span className={micVolume > 5 ? 'text-[#9b765e]' : ''}>
                     {micVolume > 5 ? 'กำลังรับเสียง...' : 'เงียบ'}
                   </span>
                 </div>
                 <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-[#48A0D8] transition-all duration-75"
+                    className="h-full bg-[#9b765e] transition-all duration-75"
                     style={{ width: `${micVolume}%` }}
                   ></div>
                 </div>
@@ -538,7 +539,7 @@ export default function Broadcast() {
               <button 
                 onClick={handleStartBroadcast}
                 disabled={isLoading || isAlarmPlaying || selectedNodes.size === 0}
-                className="w-full bg-[#48A0D8] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-md disabled:bg-gray-300 disabled:text-gray-500 active:scale-95 touch-manipulation"
+                className="w-full bg-[#9b765e] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#8a6750] transition-all shadow-md disabled:bg-gray-300 disabled:text-gray-500 active:scale-95 touch-manipulation"
               >
                 {isLoading ? 'กำลังเชื่อมต่อ...' : '▶ เริ่มประกาศเสียงสด'}
               </button>

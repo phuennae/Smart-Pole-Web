@@ -64,22 +64,23 @@ export default function AddUser() {
         
         {/* Block 1: Add New User */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8 border border-gray-200">
-          <div className="bg-[#48A0D8] p-4 text-white font-bold text-lg flex items-center gap-2">
+          {/* เปลี่ยนแถบ Header เป็นสีน้ำตาล #9b765e */}
+          <div className="bg-[#9b765e] p-4 text-white font-bold text-lg flex items-center gap-2">
             <Plus size={24} /> เพิ่มสมาชิกใหม่
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-gray-50 p-6 rounded-2xl border border-gray-100">
               <div>
                 <label className="block text-xs font-bold mb-2 text-gray-700 ml-1">ชื่อสมาชิก</label>
-                <input type="text" placeholder="เช่น นายเอ" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-white shadow-sm outline-none focus:ring-2 ring-[#48A0D8]" />
+                <input type="text" placeholder="เช่น นายเอ" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-white shadow-sm outline-none focus:ring-2 ring-[#9b765e]" />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-2 text-gray-700 ml-1">รหัสผ่าน</label>
-                <input type="text" placeholder="เช่น 123456" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-white shadow-sm outline-none focus:ring-2 ring-[#48A0D8]" />
+                <input type="text" placeholder="เช่น 123456" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-white shadow-sm outline-none focus:ring-2 ring-[#9b765e]" />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-2 text-gray-700 ml-1">สิทธิ์การเข้าถึง</label>
-                <select value={form.role} onChange={e => setForm({...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'USER'})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-white shadow-sm outline-none focus:ring-2 ring-[#48A0D8]">
+                <select value={form.role} onChange={e => setForm({...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'USER'})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-white shadow-sm outline-none focus:ring-2 ring-[#9b765e]">
                   <option value="USER">USER (ผู้ใช้งาน)</option>
                   <option value="MANAGER">MANAGER (ผู้จัดการ)</option>
                   <option value="ADMIN">ADMIN (ผู้ดูแลระบบ)</option>
@@ -96,7 +97,7 @@ export default function AddUser() {
 
         {/* Block 2: User List Table & Mobile List */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
-          <div className="bg-[#48A0D8] p-4 text-white font-bold text-lg">รายชื่อสมาชิกในระบบ</div>
+          <div className="bg-[#9b765e] p-4 text-white font-bold text-lg">รายชื่อสมาชิกในระบบ</div>
           
           {/* Desktop Table View ( md: and up) */}
           <div className="hidden md:block overflow-x-auto w-full">
@@ -110,7 +111,7 @@ export default function AddUser() {
               </thead>
               <tbody>
                 {users.map(user => (
-                  <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <tr key={user.id} className="border-b border-gray-100 hover:bg-[#fdf8f5] transition-colors">
                     <td className="p-4 text-sm font-medium text-gray-900">{user.name}</td>
                     <td className="p-4 text-sm font-medium text-gray-900">{user.role}</td>
                     <td className="p-4 text-center">
@@ -159,7 +160,7 @@ export default function AddUser() {
       {isEditOpen && editingUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#48A0D8] p-5 text-white font-bold flex items-center justify-between shrink-0">
+            <div className="bg-[#9b765e] p-5 text-white font-bold flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <Pencil size={20} /> แก้ไขสมาชิก
               </div>
@@ -170,15 +171,15 @@ export default function AddUser() {
             <div className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">ชื่อสมาชิก</label>
-                <input value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
+                <input value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50" />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">รหัสผ่านใหม่ (ปล่อยว่างถ้าไม่เปลี่ยน)</label>
-                <input type="text" placeholder="กรอกรหัสผ่านใหม่ (ถ้ามี)" value={editingUser.password || ''} onChange={e => setEditingUser({...editingUser, password: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
+                <input type="text" placeholder="กรอกรหัสผ่านใหม่ (ถ้ามี)" value={editingUser.password || ''} onChange={e => setEditingUser({...editingUser, password: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50" />
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 ml-1 text-gray-700">สิทธิ์การเข้าถึง</label>
-                <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as 'ADMIN' | 'MANAGER' | 'USER'})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50">
+                <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as 'ADMIN' | 'MANAGER' | 'USER'})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50">
                   <option value="USER">USER (ผู้ใช้งาน)</option>
                   <option value="MANAGER">MANAGER (ผู้จัดการ)</option>
                   <option value="ADMIN">ADMIN (ผู้ดูแลระบบ)</option>
@@ -189,7 +190,7 @@ export default function AddUser() {
               <button onClick={() => setIsEditOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200 transition-colors">
                 ยกเลิก
               </button>
-              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#48A0D8] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-sm active:scale-95">
+              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#9b765e] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-[#8a6750] transition-all shadow-sm active:scale-95">
                 <Save size={16} /> บันทึก
               </button>
             </div>
@@ -209,7 +210,7 @@ export default function AddUser() {
               <p className="text-sm text-gray-500 font-medium px-2">{alertModal.message}</p>
             </div>
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
-              <button onClick={() => setAlertModal({ isOpen: false, message: '' })} className="w-full bg-[#48A0D8] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-blue-600 transition-colors shadow-sm">
+              <button onClick={() => setAlertModal({ isOpen: false, message: '' })} className="w-full bg-[#9b765e] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-[#8a6750] transition-colors shadow-sm">
                 ตกลง
               </button>
             </div>
@@ -246,7 +247,7 @@ export default function AddUser() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[3000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
             <div className="p-6 text-center">
-              <div className="w-14 h-14 bg-blue-50 text-[#48A0D8] rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-14 h-14 bg-[#fdf8f5] text-[#9b765e] rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={28} />
               </div>
               <h3 className="text-lg font-extrabold text-gray-900 mb-1">ยืนยันการบันทึกการแก้ไข?</h3>
@@ -257,7 +258,7 @@ export default function AddUser() {
                 ยกเลิก
               </button>
               <div className="w-[1px] bg-gray-100"></div>
-              <button onClick={confirmSaveEdit} className="flex-1 py-3.5 text-sm font-bold text-[#48A0D8] hover:bg-blue-50 transition-colors">
+              <button onClick={confirmSaveEdit} className="flex-1 py-3.5 text-sm font-bold text-[#9b765e] hover:bg-[#fdf8f5] transition-colors">
                 ยืนยันบันทึก
               </button>
             </div>

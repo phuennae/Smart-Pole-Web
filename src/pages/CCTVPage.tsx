@@ -89,8 +89,9 @@ function CCTVPoleMarker({
   }, [node.id]);
 
   const statusDot = online ? 'bg-[#76E136]' : 'bg-red-500';
+  // เปลี่ยนสีเงา drop-shadow เวลาถูกเลือก เป็นสีน้ำตาล
   const filterStyle = online 
-    ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
+    ? (isSelected ? 'drop-shadow(0 0 10px rgba(155,118,94,0.9))' : 'none') 
     : 'grayscale(100%) opacity(60%)';
 
   const customIcon = L.divIcon({
@@ -98,7 +99,7 @@ function CCTVPoleMarker({
     html: `
       <div style="display: flex; flex-direction: column; align-items: center; width: 100px; transition: all 0.3s; cursor: pointer; transform: ${isSelected ? 'scale(1.05)' : 'scale(1)'}">
         <img src="/pole.png" style="width: 40px; height: 80px; object-fit: contain; filter: ${filterStyle};" />
-        <div class="${isSelected ? 'bg-[#48A0D8]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors">
+        <div class="${isSelected ? 'bg-[#9b765e]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors">
           <div class="w-1.5 h-1.5 rounded-full ${statusDot} ${online && isSelected ? 'animate-pulse' : ''}"></div>
           ${node.name}
         </div>
@@ -160,7 +161,8 @@ function CCTVSidebar({
         </p>
 
         <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-6 flex flex-col items-center text-center pb-8">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${online ? 'bg-blue-50 text-[#48A0D8]' : 'bg-gray-100 text-gray-400'}`}>
+          {/* เปลี่ยนสีพื้นหลังไอคอนเป็นสีน้ำตาลอ่อน และไอคอนสีน้ำตาลเข้ม */}
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${online ? 'bg-[#fdf8f5] text-[#9b765e]' : 'bg-gray-100 text-gray-400'}`}>
             <Video size={32} />
           </div>
           <h3 className="font-bold text-gray-800 text-base">กล้องวงจรปิด</h3>
@@ -168,9 +170,10 @@ function CCTVSidebar({
         </div>
 
         {online ? (
+          // เปลี่ยนสีปุ่มเป็น #9b765e และตอน Hover เป็น #8a6750
           <button 
             onClick={() => navigate(`/cctv-monitor/${node.id}`)}
-            className="w-full bg-[#48A0D8] text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold shadow-md hover:bg-blue-500 transition-colors"
+            className="w-full bg-[#9b765e] text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold shadow-md hover:bg-[#8a6750] transition-colors"
           >
             <Eye size={18} strokeWidth={2.5} /> ดูสัญญาณภาพสด (Live Monitor)
           </button>

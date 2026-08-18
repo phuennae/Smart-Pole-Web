@@ -139,7 +139,7 @@ export default function CCTVMonitor() {
       if (command === 'stop') {
         lastCommand.current = null;
       }
-    } catch (error: any) { // ใช้ any เพื่อเข้าถึง property .name
+    } catch (error: any) { 
       // 🔴 ถ้า Error เกิดจากการที่เราสั่งตัดสาย (Abort) ไม่ต้องตกใจและไม่ต้องแจ้งเตือน
       if (error.name === 'AbortError') {
         console.log(`เคลียร์คำสั่งที่ค้างสำเร็จ (เปลี่ยนเป็น: ${command})`);
@@ -210,7 +210,8 @@ export default function CCTVMonitor() {
           
           {/* 1. กล่องวิดีโอ */}
           <div className="flex-1 lg:flex-[2.5] bg-white rounded-2xl md:rounded-[32px] shadow-xl overflow-hidden border border-gray-100 flex flex-col min-h-0">
-            <div className={`${isNodeOnline ? 'bg-[#48A0D8]' : 'bg-gray-600'} p-3 md:p-5 flex justify-between items-center text-white transition-colors shrink-0`}>
+            {/* เปลี่ยนแถบ Header เป็นสีน้ำตาล */}
+            <div className={`${isNodeOnline ? 'bg-[#9b765e]' : 'bg-gray-600'} p-3 md:p-5 flex justify-between items-center text-white transition-colors shrink-0`}>
               <div className="flex items-center gap-2 md:gap-3 truncate pr-2">
                 <div className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 ${isNodeOnline ? 'bg-[#76E136] animate-pulse shadow-[0_0_8px_rgba(118,225,54,0.8)]' : 'bg-red-500'}`} />
                 <h2 className="text-sm md:text-xl font-bold truncate">{camera.name}</h2>
@@ -245,7 +246,7 @@ export default function CCTVMonitor() {
           {/* 2. กล่องควบคุม PTZ */}
           <div className={`w-full lg:w-[340px] shrink-0 bg-white rounded-2xl md:rounded-[32px] shadow-xl border border-gray-100 p-4 md:p-6 flex flex-col justify-center items-center transition-opacity ${!isNodeOnline ? 'opacity-50 pointer-events-none' : ''}`}>
              <h4 className="font-bold text-gray-700 mb-4 md:mb-6 flex items-center gap-2 text-sm md:text-base">
-               <i className="fas fa-gamepad text-[#48A0D8]"></i> ควบคุมทิศทางกล้อง
+               <i className="fas fa-gamepad text-[#9b765e]"></i> ควบคุมทิศทางกล้อง
              </h4>
              
              <div className="grid grid-cols-3 gap-2 md:gap-3">
@@ -256,7 +257,8 @@ export default function CCTVMonitor() {
                   onMouseLeave={() => handlePTZ('stop')}
                   onTouchStart={() => handlePTZ('up')}
                   onTouchEnd={() => handlePTZ('stop')}
-                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                  // เปลี่ยนปุ่มเป็นสีน้ำตาล
+                  className="bg-[#9b765e] p-5 rounded-xl md:rounded-2xl text-white hover:bg-[#8a6750] shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
                 >
                   <ArrowUp size={24} className="md:w-7 md:h-7" />
                 </button>
@@ -268,7 +270,7 @@ export default function CCTVMonitor() {
                   onMouseLeave={() => handlePTZ('stop')}
                   onTouchStart={() => handlePTZ('left')}
                   onTouchEnd={() => handlePTZ('stop')}
-                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                  className="bg-[#9b765e] p-5 rounded-xl md:rounded-2xl text-white hover:bg-[#8a6750] shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
                 >
                   <ArrowLeftIcon size={24} className="md:w-7 md:h-7" />
                 </button>
@@ -286,7 +288,7 @@ export default function CCTVMonitor() {
                   onMouseLeave={() => handlePTZ('stop')}
                   onTouchStart={() => handlePTZ('right')}
                   onTouchEnd={() => handlePTZ('stop')}
-                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                  className="bg-[#9b765e] p-5 rounded-xl md:rounded-2xl text-white hover:bg-[#8a6750] shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
                 >
                   <ArrowRight size={24} className="md:w-7 md:h-7" />
                 </button>
@@ -298,7 +300,7 @@ export default function CCTVMonitor() {
                   onMouseLeave={() => handlePTZ('stop')}
                   onTouchStart={() => handlePTZ('down')}
                   onTouchEnd={() => handlePTZ('stop')}
-                  className="bg-[#48A0D8] p-5 rounded-xl md:rounded-2xl text-white hover:bg-blue-600 shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
+                  className="bg-[#9b765e] p-5 rounded-xl md:rounded-2xl text-white hover:bg-[#8a6750] shadow-md transition-transform active:scale-90 touch-manipulation select-none flex items-center justify-center"
                 >
                   <ArrowDown size={24} className="md:w-7 md:h-7" />
                 </button>

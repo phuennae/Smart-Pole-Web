@@ -68,34 +68,34 @@ export default function AddNode() {
         
         {/* Block 1: Add New Device */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6 border border-gray-200">
-          <div className="bg-[#48A0D8] p-4 text-white font-bold text-lg flex items-center gap-2">
+          <div className="bg-[#9b765e] p-4 text-white font-bold text-lg flex items-center gap-2">
             <Plus size={24} /> เพิ่มอุปกรณ์ใหม่
           </div>
           <div className="p-4 md:p-6">
              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end">
                <div>
                  <label className="block text-xs font-bold mb-2">ชื่อจุดติดตั้ง</label>
-                 <input type="text" placeholder="เช่น Node A" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#48A0D8]" />
+                 <input type="text" placeholder="เช่น Node A" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#9b765e]" />
                </div>
                <div>
                  <label className="block text-xs font-bold mb-2">IP Address / Domain</label>
-                 <input type="text" placeholder="192.168.1.1" value={form.ip} onChange={e => setForm({...form, ip: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+                 <input type="text" placeholder="192.168.1.1" value={form.ip} onChange={e => setForm({...form, ip: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#9b765e]" />
                </div>
                <div>
                  <label className="block text-xs font-bold mb-2">Port</label>
-                 <input type="text" placeholder="8080" value={form.port} onChange={e => setForm({...form, port: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+                 <input type="text" placeholder="8080" value={form.port} onChange={e => setForm({...form, port: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#9b765e]" />
                </div>
                <div>
                  <label className="block text-xs font-bold mb-2">Latitude</label>
-                 <input type="number" step="any" placeholder="18.795..." value={form.lat} onChange={e => setForm({...form, lat: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+                 <input type="number" step="any" placeholder="18.795..." value={form.lat} onChange={e => setForm({...form, lat: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#9b765e]" />
                </div>
                <div>
                  <label className="block text-xs font-bold mb-2">Longitude</label>
-                 <input type="number" step="any" placeholder="98.952..." value={form.lng} onChange={e => setForm({...form, lng: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none" />
+                 <input type="number" step="any" placeholder="98.952..." value={form.lng} onChange={e => setForm({...form, lng: e.target.value})} className="w-full p-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 ring-[#9b765e]" />
                </div>
              </div>
              <div className="flex justify-center mt-6">
-                <button onClick={handleAdd} className="bg-[#48A0D8] text-white px-12 py-2.5 rounded-lg font-bold hover:bg-blue-600 transition-all w-full sm:w-auto shadow-sm active:scale-95 touch-manipulation">
+                <button onClick={handleAdd} className="bg-[#9b765e] text-white px-12 py-2.5 rounded-lg font-bold hover:bg-[#8a6750] transition-all w-full sm:w-auto shadow-sm active:scale-95 touch-manipulation">
                   เพิ่มอุปกรณ์
                 </button>
              </div>
@@ -104,7 +104,7 @@ export default function AddNode() {
 
         {/* Block 2: Table & Mobile List */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden w-full">
-          <div className="bg-[#48A0D8] p-4 text-white font-bold text-lg">รายการอุปกรณ์ในระบบ</div>
+          <div className="bg-[#9b765e] p-4 text-white font-bold text-lg">รายการอุปกรณ์ในระบบ</div>
           
           {/* Desktop Table View ( md: and up) */}
           <div className="hidden md:block overflow-x-auto w-full">
@@ -173,7 +173,7 @@ export default function AddNode() {
       {isEditOpen && editingNode && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#48A0D8] p-5 text-white font-bold flex items-center justify-between">
+            <div className="bg-[#9b765e] p-5 text-white font-bold flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Pencil size={20} /> แก้ไขอุปกรณ์
               </div>
@@ -184,26 +184,26 @@ export default function AddNode() {
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-bold mb-1 text-gray-700">ชื่อจุดติดตั้ง</label>
-                <input value={editingNode.name} onChange={e => setEditingNode({...editingNode, name: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
+                <input value={editingNode.name} onChange={e => setEditingNode({...editingNode, name: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold mb-1 text-gray-700">IP Address / Domain</label>
-                    <input value={editingNode.ip} onChange={e => setEditingNode({...editingNode, ip: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
+                    <input value={editingNode.ip} onChange={e => setEditingNode({...editingNode, ip: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50" />
                 </div>
                 <div>
                     <label className="block text-xs font-bold mb-1 text-gray-700">Port</label>
-                    <input value={editingNode.port} onChange={e => setEditingNode({...editingNode, port: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
+                    <input value={editingNode.port} onChange={e => setEditingNode({...editingNode, port: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50" />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold mb-1 text-gray-700">Latitude</label>
-                    <input type="number" value={editingNode.lat} onChange={e => setEditingNode({...editingNode, lat: parseFloat(e.target.value) || 0})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
+                    <input type="number" value={editingNode.lat} onChange={e => setEditingNode({...editingNode, lat: parseFloat(e.target.value) || 0})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50" />
                 </div>
                 <div>
                     <label className="block text-xs font-bold mb-1 text-gray-700">Longitude</label>
-                    <input type="number" value={editingNode.lng} onChange={e => setEditingNode({...editingNode, lng: parseFloat(e.target.value) || 0})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#48A0D8]/50" />
+                    <input type="number" value={editingNode.lng} onChange={e => setEditingNode({...editingNode, lng: parseFloat(e.target.value) || 0})} className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:ring-2 ring-[#9b765e]/50" />
                 </div>
               </div>
             </div>
@@ -211,7 +211,7 @@ export default function AddNode() {
               <button onClick={() => setIsEditOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200 transition-colors">
                 ยกเลิก
               </button>
-              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#48A0D8] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-sm active:scale-95">
+              <button onClick={handlePreSaveEdit} className="flex items-center gap-2 bg-[#9b765e] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-[#8a6750] transition-all shadow-sm active:scale-95">
                 <Save size={16} /> บันทึก
               </button>
             </div>
@@ -231,7 +231,7 @@ export default function AddNode() {
               <p className="text-sm text-gray-500 font-medium px-2">{alertModal.message}</p>
             </div>
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
-              <button onClick={() => setAlertModal({ isOpen: false, message: '' })} className="w-full bg-[#48A0D8] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-blue-600 transition-colors shadow-sm">
+              <button onClick={() => setAlertModal({ isOpen: false, message: '' })} className="w-full bg-[#9b765e] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-[#8a6750] transition-colors shadow-sm">
                 ตกลง
               </button>
             </div>
@@ -268,7 +268,7 @@ export default function AddNode() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[3000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
             <div className="p-6 text-center">
-              <div className="w-14 h-14 bg-blue-50 text-[#48A0D8] rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-14 h-14 bg-[#fdf8f5] text-[#9b765e] rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={28} />
               </div>
               <h3 className="text-lg font-extrabold text-gray-900 mb-1">ยืนยันการบันทึกการแก้ไข?</h3>
@@ -279,7 +279,7 @@ export default function AddNode() {
                 ยกเลิก
               </button>
               <div className="w-[1px] bg-gray-100"></div>
-              <button onClick={confirmSaveEdit} className="flex-1 py-3.5 text-sm font-bold text-[#48A0D8] hover:bg-blue-50 transition-colors">
+              <button onClick={confirmSaveEdit} className="flex-1 py-3.5 text-sm font-bold text-[#9b765e] hover:bg-[#fdf8f5] transition-colors">
                 ยืนยันบันทึก
               </button>
             </div>

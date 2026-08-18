@@ -98,14 +98,14 @@ export default function ActivityLogs() {
         {/* Card ตารางข้อมูล */}
         <div className="bg-white rounded-2xl md:rounded-[32px] shadow-xl overflow-hidden border border-gray-100">
           
-          {/* Header ของ Card */}
-          <div className="bg-[#3B7BBD] p-4 md:p-5 flex items-center gap-3 text-white">
+          {/* Header ของ Card เปลี่ยนเป็นสีน้ำตาล #9b765e */}
+          <div className="bg-[#9b765e] p-4 md:p-5 flex items-center gap-3 text-white">
             <div className="bg-white/20 p-2 rounded-xl">
               <ClipboardList size={24} />
             </div>
             <div>
               <h2 className="text-lg md:text-xl font-bold">Activity Logs</h2>
-              <p className="text-xs md:text-sm text-blue-100">ประวัติการใช้งานระบบ (ย้อนหลัง 7 วัน)</p>
+              <p className="text-xs md:text-sm text-[#f6ebd9]">ประวัติการใช้งานระบบ (ย้อนหลัง 7 วัน)</p>
             </div>
           </div>
 
@@ -113,7 +113,8 @@ export default function ActivityLogs() {
           <div className="p-0">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                <RefreshCw size={40} className="animate-spin mb-4 text-[#48A0D8]" />
+                {/* เปลี่ยนสีไอคอนโหลดเป็นสีน้ำตาล */}
+                <RefreshCw size={40} className="animate-spin mb-4 text-[#9b765e]" />
                 <p className="font-bold animate-pulse text-sm">กำลังโหลดข้อมูล...</p>
               </div>
             ) : error ? (
@@ -132,15 +133,16 @@ export default function ActivityLogs() {
                   {logs.map((log) => (
                     <div key={log.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
                       
-                      {/* บรรทัดแรก: วันที่และเวลา (วางไว้ด้านบนเพื่อให้เห็นชัดเจน) */}
+                      {/* บรรทัดแรก: วันที่และเวลา */}
                       <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
-                        <Clock size={14} className="text-[#3B7BBD]" />
+                        {/* เปลี่ยนสีไอคอนนาฬิกาเป็นสีน้ำตาล */}
+                        <Clock size={14} className="text-[#9b765e]" />
                         <span>{formatDate(log.created_at)}</span>
                       </div>
 
-                      {/* บรรทัดที่สอง: ผู้ใช้งานและการกระทำ (ใช้ Badge สไตล์เดิม) */}
+                      {/* บรรทัดที่สอง: ผู้ใช้งานและการกระทำ (ใช้ Badge สไตล์เดิม แต่เปลี่ยนเป็นสีน้ำตาลอ่อน) */}
                       <div className="flex items-center justify-between gap-3 border-t border-b border-gray-100 py-3">
-                        <span className="bg-blue-100 text-[#3B7BBD] font-bold px-3 py-1.5 rounded-full text-xs">
+                        <span className="bg-[#fdf8f5] text-[#9b765e] border border-[#e8d5c8] font-bold px-3 py-1.5 rounded-full text-xs">
                           {log.username}
                         </span>
                         <p className="text-sm font-semibold text-gray-800 flex-1 text-right">
@@ -168,7 +170,7 @@ export default function ActivityLogs() {
 
                 {/* [2] Desktop View: Table (ซ่อนเมื่อจอเล็ก < md) */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[900px]"> {/* ปรับ min-w เพิ่มเล็กน้อย */}
+                  <table className="w-full text-left border-collapse min-w-[900px]">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
                         <th className="py-4 px-6 font-bold w-1/4 min-w-[200px]"><div className="flex items-center gap-2"><Clock size={16}/> วันที่ / เวลา</div></th>
@@ -179,12 +181,14 @@ export default function ActivityLogs() {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {logs.map((log) => (
-                        <tr key={log.id} className="hover:bg-blue-50/50 transition-colors">
+                        // เปลี่ยนสี hover ตอนชี้เมาส์ เป็นสีน้ำตาลอ่อน
+                        <tr key={log.id} className="hover:bg-[#fdf8f5] transition-colors">
                           <td className="py-4 px-6 text-sm text-gray-600 whitespace-nowrap">
                             {formatDate(log.created_at)}
                           </td>
                           <td className="py-4 px-6">
-                            <span className="bg-blue-100 text-[#3B7BBD] font-bold px-3 py-1 rounded-full text-xs">
+                            {/* เปลี่ยน Badge สีฟ้าเป็นสีน้ำตาล */}
+                            <span className="bg-[#fdf8f5] text-[#9b765e] border border-[#e8d5c8] font-bold px-3 py-1 rounded-full text-xs">
                               {log.username}
                             </span>
                           </td>

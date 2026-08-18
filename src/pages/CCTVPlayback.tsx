@@ -467,13 +467,13 @@ export default function CCTVPlayback() {
           onClick={() => setDate(dateString)}
           className={`h-8 w-8 rounded-full flex flex-col items-center justify-center text-xs font-bold relative transition-all ${
             isSelected 
-              ? 'bg-[#48A0D8] text-white shadow-md' 
+              ? 'bg-[#9b765e] text-white shadow-md' 
               : 'hover:bg-gray-100 text-gray-700'
           }`}
         >
           <span>{d}</span>
           {hasRecording && (
-            <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-[#48A0D8]'}`}></span>
+            <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-[#9b765e]'}`}></span>
           )}
         </button>
       );
@@ -526,7 +526,7 @@ export default function CCTVPlayback() {
               
               {renderCalendarGrid()}
 
-              <button onClick={handleSearch} disabled={isLoading} className="w-full bg-[#48A0D8] text-white p-3 rounded-xl font-bold hover:bg-blue-600 transition-all disabled:opacity-50 active:scale-95 touch-manipulation">
+              <button onClick={handleSearch} disabled={isLoading} className="w-full bg-[#9b765e] text-white p-3 rounded-xl font-bold hover:bg-[#8a6750] transition-all disabled:opacity-50 active:scale-95 touch-manipulation">
                 {isLoading ? 'กำลังค้นหา...' : 'ค้นหาบันทึก'}
               </button>
             </div>
@@ -617,11 +617,11 @@ export default function CCTVPlayback() {
                 {recordings.length > 0 && (
                   <div className="mb-5">
                     <label className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                      <Video size={16} className="text-[#48A0D8]" /> เลือกเปิดภาพย้อนหลังตามช่วงเวลา
+                      <Video size={16} className="text-[#9b765e]" /> เลือกเปิดภาพย้อนหลังตามช่วงเวลา
                     </label>
                     <div className="relative w-full md:w-2/3">
                       <select
-                        className="w-full bg-white border border-gray-200 text-gray-700 py-3.5 px-4 pr-10 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#48A0D8] appearance-none cursor-pointer shadow-sm transition-all"
+                        className="w-full bg-white border border-gray-200 text-gray-700 py-3.5 px-4 pr-10 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#9b765e] appearance-none cursor-pointer shadow-sm transition-all"
                         value={selectedSegment?.id || ""}
                         onChange={(e) => {
                           const selectedId = e.target.value;
@@ -645,7 +645,7 @@ export default function CCTVPlayback() {
                           );
                         })}
                       </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#48A0D8]">
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#9b765e]">
                         <ChevronDown size={20} strokeWidth={2.5} />
                       </div>
                     </div>
@@ -654,7 +654,7 @@ export default function CCTVPlayback() {
 
                 <div className="text-xs font-bold text-gray-400 mb-2 flex justify-between">
                   <span>Timeline (ปัดเลื่อนซ้าย-ขวาได้)</span>
-                  {isPlaying && <span className="text-blue-600 font-mono">{playbackProgress.toFixed(0)}%</span>}
+                  {isPlaying && <span className="text-[#9b765e] font-mono">{playbackProgress.toFixed(0)}%</span>}
                 </div>
                 
                 <div className="overflow-x-auto pb-2 custom-scrollbar touch-pan-x">
@@ -663,14 +663,14 @@ export default function CCTVPlayback() {
                       {recordings.map((rec) => (
                         <div 
                           key={rec.id}
-                          className={`absolute h-full bg-blue-500/60 border-r border-white/50 transition-all hover:opacity-100 cursor-pointer ${selectedSegment?.id === rec.id ? 'bg-blue-600 shadow-[0_0_0_2px_white_inset]' : ''}`}
+                          className={`absolute h-full bg-[#9b765e]/60 border-r border-white/50 transition-all hover:opacity-100 cursor-pointer ${selectedSegment?.id === rec.id ? 'bg-[#8a6750] shadow-[0_0_0_2px_white_inset]' : ''}`}
                           style={getTimelineStyle(rec.start, rec.end)}
                           onClick={(e) => handleTimelineClick(e, rec)}
                           title={`คลิกเพื่อเล่นช่วง: ${rec.start} - ${rec.end}`}
                         >
                           {selectedSegment?.id === rec.id && isPlaying && (
                             <div 
-                              className="absolute top-0 left-0 h-full bg-blue-400/40 pointer-events-none border-r-2 border-white"
+                              className="absolute top-0 left-0 h-full bg-[#9b765e]/40 pointer-events-none border-r-2 border-white"
                               style={{ width: `${playbackProgress}%` }}
                             />
                           )}
@@ -702,7 +702,7 @@ export default function CCTVPlayback() {
                 </button>
 
                 <div className="w-full md:w-auto md:ml-auto font-mono font-bold text-gray-700 flex items-center justify-center md:justify-end gap-2 bg-gray-100 px-4 py-2.5 md:py-2 rounded-xl">
-                  <Clock size={18} className="text-[#48A0D8] shrink-0" /> 
+                  <Clock size={18} className="text-[#9b765e] shrink-0" /> 
                   <span className="text-sm">
                     {/* ✅ แปลงเวลา UTC ให้เป็นเวลาประเทศไทย (GMT+7) เพื่อแสดงผลมุมขวาล่าง */}
                     {selectedSegment ? `${formatLocalTime(selectedSegment.start)} - ${formatLocalTime(selectedSegment.end)}` : '--:--'}

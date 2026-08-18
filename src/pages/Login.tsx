@@ -27,8 +27,8 @@ export default function Login() {
   return (
     <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-white font-sans">
       
-      {/* ฝั่งซ้าย: โลโก้แถบสีน้ำเงิน */}
-      <div className="w-full md:w-[320px] bg-[#3B7BBD] flex flex-col items-center justify-center p-8 md:p-6 text-white shadow-xl z-10 shrink-0">
+      {/* ฝั่งซ้าย: เปลี่ยนพื้นหลังเป็นสีน้ำตาลทับกวาง #9b765e */}
+      <div className="w-full md:w-[320px] bg-[#9b765e] flex flex-col items-center justify-center p-8 md:p-6 text-white shadow-xl z-10 shrink-0">
         <div className="w-32 h-32 md:w-56 md:h-56 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md mb-4 md:mb-8">
           <img src="/logo.png" alt="FAR FORWARD Logo" className="w-[75%] h-[75%] object-contain" />
         </div>
@@ -40,8 +40,8 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center bg-white p-4 relative overflow-y-auto">
         <div className="w-full max-w-[600px] rounded-[20px] shadow-[0_0_20px_rgba(0,0,0,0.1)] overflow-hidden my-auto">
           
-          {/* Header สีฟ้า */}
-          <div className="bg-[#48A0D8] p-4 md:p-5 flex items-center gap-3 text-white">
+          {/* Header เปลี่ยนเป็นสีน้ำตาลทับกวาง #9b765e */}
+          <div className="bg-[#9b765e] p-4 md:p-5 flex items-center gap-3 text-white">
             <div className="w-8 h-8 shrink-0 rounded-full border-2 border-white flex items-center justify-center">
               <Info size={20} strokeWidth={2.5} />
             </div>
@@ -62,7 +62,8 @@ export default function Login() {
                   placeholder="Username / ชื่อผู้ใช้งาน"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-lg border-0 shadow-sm outline-none focus:ring-2 ring-[#48A0D8] text-sm font-bold text-gray-700 placeholder-gray-400"
+                  // เปลี่ยน focus:ring เป็นสี #9b765e
+                  className="w-full pl-12 pr-4 py-3 rounded-lg border-0 shadow-sm outline-none focus:ring-2 ring-[#9b765e] text-sm font-bold text-gray-700 placeholder-gray-400"
                 />
               </div>
 
@@ -76,7 +77,8 @@ export default function Login() {
                   placeholder="Password / รหัสผ่าน"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-lg border-0 shadow-sm outline-none focus:ring-2 ring-[#48A0D8] text-sm font-bold text-gray-700 placeholder-gray-400"
+                  // เปลี่ยน focus:ring เป็นสี #9b765e
+                  className="w-full pl-12 pr-4 py-3 rounded-lg border-0 shadow-sm outline-none focus:ring-2 ring-[#9b765e] text-sm font-bold text-gray-700 placeholder-gray-400"
                 />
               </div>
 
@@ -84,7 +86,8 @@ export default function Login() {
 
               {/* ปุ่ม Login */}
               <div className="flex justify-center mt-4">
-                <button type="submit" className="bg-[#48A0D8] text-white px-8 py-2.5 rounded-full font-bold text-sm shadow-md hover:bg-blue-500 transition-colors w-full sm:w-auto">
+                {/* เปลี่ยนสีปุ่มเป็น #9b765e และตอน hover ให้เข้มขึ้นเป็น #8a6750 */}
+                <button type="submit" className="bg-[#9b765e] text-white px-8 py-2.5 rounded-full font-bold text-sm shadow-md hover:bg-[#8a6750] transition-colors w-full sm:w-auto">
                   Log in / เข้าสู่ระบบ
                 </button>
               </div>

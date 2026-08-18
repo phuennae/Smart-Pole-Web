@@ -91,8 +91,9 @@ function PoleMarker({
   }, [node.id]);
 
   const statusDot = online ? 'bg-[#76E136]' : 'bg-red-500';
+  // เปลี่ยนสีเงา drop-shadow เวลาถูกเลือก ให้เป็นสีน้ำตาล rgba(155,118,94,0.9)
   const filterStyle = online 
-    ? (isSelected ? 'drop-shadow(0 0 10px rgba(72,160,216,0.9))' : 'none') 
+    ? (isSelected ? 'drop-shadow(0 0 10px rgba(155,118,94,0.9))' : 'none') 
     : 'grayscale(100%) opacity(60%)';
 
   const customIcon = L.divIcon({
@@ -100,7 +101,7 @@ function PoleMarker({
     html: `
       <div style="display: flex; flex-direction: column; align-items: center; width: 100px; transition: all 0.3s; cursor: pointer; transform: ${isSelected ? 'scale(1.05)' : 'scale(1)'}">
         <img src="/pole.png" style="width: 40px; height: 80px; object-fit: contain; filter: ${filterStyle};" />
-        <div class="${isSelected ? 'bg-[#48A0D8]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors">
+        <div class="${isSelected ? 'bg-[#9b765e]' : 'bg-gray-900'} text-white px-2.5 py-1 rounded-full font-bold shadow-lg text-[11px] mt-1 border border-white text-center whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors">
           <div class="w-1.5 h-1.5 rounded-full ${statusDot} ${online && isSelected ? 'animate-pulse' : ''}"></div>
           ${node.name}
         </div>
@@ -193,7 +194,8 @@ function NodeSidebar({ node, onClose }: { node: NodeItem; onClose: () => void })
             </div>
 
             {online && data?.battery_pct !== undefined && data.battery_pct !== null && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#F0F7FF] text-[#48A0D8] border border-[#D0E6FB]">
+              // เปลี่ยนสีป้ายสถานะแบตเตอรี่ ให้เข้ากับโทนน้ำตาล
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#fdf8f5] text-[#9b765e] border border-[#e8d5c8]">
                 <BatteryCharging size={14} /> {data.battery_pct}%
               </div>
             )}
@@ -201,9 +203,10 @@ function NodeSidebar({ node, onClose }: { node: NodeItem; onClose: () => void })
         </div>
 
         {online && (
+          // เปลี่ยนสีปุ่มเป็น #9b765e และ hover เป็น #8a6750
           <button 
             onClick={() => navigate(`/energy-monitor/${node.id}`)} 
-            className="mt-5 w-full bg-[#48A0D8] text-white py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold shadow-md hover:bg-blue-500 transition-colors"
+            className="mt-5 w-full bg-[#9b765e] text-white py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold shadow-md hover:bg-[#8a6750] transition-colors"
           >
             <Share size={16} strokeWidth={2.5} /> ดูสถิติกราฟแบบละเอียด
           </button>
@@ -215,7 +218,6 @@ function NodeSidebar({ node, onClose }: { node: NodeItem; onClose: () => void })
           Real-time Monitor
         </p>
         
-        {/* ✅ ลบการ์ด Energy (Wh) ออก เหลือแค่ 3 ช่อง */}
         <div className="flex flex-col gap-3.5">
           <DataCard 
             title="Voltage" value={data.voltage} unit="V" 

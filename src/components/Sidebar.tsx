@@ -42,13 +42,14 @@ export default function Sidebar() {
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-    };
+    }
   }, [isMenuOpen]);
 
   return (
     <>
       {/* ─── SIDEBAR สำหรับหน้าจอปกติ (PC / Notebook / Mac) ─── */}
-      <aside className="hidden md:flex w-[320px] bg-[#3B7BBD] h-screen flex-col p-6 text-white shadow-xl relative z-[1000] flex-shrink-0">
+      {/* เปลี่ยนสีพื้นหลัง Sidebar เป็น #9b765e */}
+      <aside className="hidden md:flex w-[320px] bg-[#9b765e] h-screen flex-col p-6 text-white shadow-xl relative z-[1000] flex-shrink-0">
         <div className="flex justify-center mt-4 mb-10">
           <div className="w-44 h-44 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md">
             <img src="/logo.png" alt="FAR FORWARD Logo" className="w-[75%] h-[75%] object-contain" />
@@ -87,7 +88,8 @@ export default function Sidebar() {
           )}
 
           <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center justify-center gap-2 hover:bg-white/10 px-4 py-2 rounded-xl transition-all cursor-pointer">
-            <div className="bg-white rounded-full p-1 text-[#3B7BBD]"><UserIcon size={20} /></div>
+            {/* เปลี่ยนสีไอคอน User เป็น #9b765e */}
+            <div className="bg-white rounded-full p-1 text-[#9b765e]"><UserIcon size={20} /></div>
             <span className="font-bold text-sm tracking-wide ml-1">{currentUser?.name} ({currentUser?.role})</span>
             {isMenuOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
@@ -95,7 +97,8 @@ export default function Sidebar() {
       </aside>
 
       {/* ─── NAVIGATION สำหรับหน้าจอมือถือ / ย่อจอเล็ก ─── */}
-      <header className="md:hidden bg-[#3B7BBD] text-white p-4 flex justify-between items-center shadow-md z-[1000] flex-shrink-0">
+      {/* เปลี่ยนสี Header มือถือ เป็น #9b765e */}
+      <header className="md:hidden bg-[#9b765e] text-white p-4 flex justify-between items-center shadow-md z-[1000] flex-shrink-0">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white rounded-full p-1" />
           <span className="font-bold text-sm tracking-wide">Smart Pole System</span>
@@ -107,7 +110,8 @@ export default function Sidebar() {
 
       {/* เมนูสไลด์ลงมาเมื่อกดปุ่มบนมือถือ */}
       {isMobileNavOpen && (
-        <div className="md:hidden bg-[#2c6198] text-white absolute top-[72px] left-0 w-full z-[999] p-4 flex flex-col gap-3 shadow-xl max-h-[calc(100vh-72px)] overflow-y-auto">
+        // เปลี่ยนสีพื้นหลังเมนูสไลด์มือถือ เป็นสีน้ำตาลเข้ม #8a6750 เพื่อให้ดูมีมิติ
+        <div className="md:hidden bg-[#8a6750] text-white absolute top-[72px] left-0 w-full z-[999] p-4 flex flex-col gap-3 shadow-xl max-h-[calc(100vh-72px)] overflow-y-auto">
           <Link to="/" onClick={() => setIsMobileNavOpen(false)} className="p-3 bg-white text-black font-bold rounded-xl flex items-center gap-3"><Home size={20}/> หน้าหลัก</Link>
           <Link to="/audio" onClick={() => setIsMobileNavOpen(false)} className="p-3 bg-white text-black font-bold rounded-xl flex items-center gap-3"><Volume2 size={20}/> เสียงไร้สาย</Link>
           <Link to="/broadcast" onClick={() => setIsMobileNavOpen(false)} className="p-3 bg-white text-black font-bold rounded-xl flex items-center gap-3"><Mic size={20}/> ประกาศเสียงสด</Link>
