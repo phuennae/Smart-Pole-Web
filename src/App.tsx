@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AlertCircle } from 'lucide-react'; // ✅ เพิ่ม Import ไอคอน
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import AudioControl from './pages/AudioControl';
@@ -21,9 +22,11 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 }
 
 function AppContent() {
-  // ✅ ดึงฟังก์ชัน logout ออกมาจาก Context เพื่อใช้ตอนหมดเวลา
   const { currentUser, logout } = useUsers(); 
   const timeoutRef = useRef<any>(null);
+  
+  // ✅ เพิ่ม State ควบคุมการแสดง Pop-up แจ้งเตือนเซสชันหมดอายุ
+  const [showSessionTimeout, setShowSessionTimeout] = useState(false);
 
   // ✅ ฟังก์ชันจับเวลา Auto Logout (30 นาที)
   useEffect(() => {
@@ -36,11 +39,8 @@ function AppContent() {
     const resetTimer = () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => {
-        // เมื่อปล่อยทิ้งไว้จนครบเวลา ให้ทำการ Logout ทันที
-        if (logout) {
-          logout();
-          alert("เซสชันหมดอายุเนื่องจากไม่มีการใช้งาน กรุณาเข้าสู่ระบบใหม่");
-        }
+        // เมื่อปล่อยทิ้งไว้จนครบเวลา ให้แสดง Modal แทน alert
+          setShowSessionTimeout(true);
       }, TIMEOUT_MS);
     };
 
@@ -62,7 +62,7 @@ function AppContent() {
 
   return (
     // md:flex-row แปลว่าถ้าจอใหญ่กว่า 768px (PC/Notebook) ให้เรียงซ้ายขวา แต่ถ้าจอเล็ก (มือถือ) ให้เรียงบนลงล่าง flex-col
-    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-gray-100">
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-gray-100 relative">
       {currentUser && <Sidebar />}
       
       {/* ส่วนเนื้อหาหลักจะยืดเต็มพื้นที่ที่เหลือ */}
@@ -81,6 +81,34 @@ function AppContent() {
           <Route path="/activity-logs" element={<ActivityLogs />} />
         </Routes>
       </div>
+
+      {/* ✅ Minimal Session Timeout Modal (ธีมสีน้ำตาลทับกวาง) */}
+      {showSessionTimeout && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle size={32} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-extrabold text-gray-900 mb-2">เซสชันหมดอายุ</h3>
+              <p className="text-sm text-gray-500 font-medium px-2 leading-relaxed">
+                เนื่องจากไม่มีการใช้งานระบบเป็นเวลานาน<br/>กรุณาเข้าสู่ระบบใหม่อีกครั้ง
+              </p>
+            </div>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
+              <button 
+                onClick={() => {
+                  setShowSessionTimeout(false);
+                  logout(); // ทำการเตะออกจากระบบหลังกดปุ่มตกลง
+                }} 
+                className="w-full bg-[#9b765e] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#8a6750] transition-colors shadow-sm"
+              >
+                เข้าสู่ระบบใหม่
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
