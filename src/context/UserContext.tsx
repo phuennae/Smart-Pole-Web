@@ -61,10 +61,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       // 1. เช็กก่อนเลยว่า ผู้ใช้ปล่อยหน้าจอทิ้งไว้เกิน 30 นาที (1,800,000 มิลลิวินาที) หรือยัง?
       const TIMEOUT_MS = 30 * 60 * 1000;
       if (Date.now() - lastActivityTime.current > TIMEOUT_MS) {
-        // ถ้าเกิน 30 นาที ให้เรียกคำสั่ง Logout ทันที
+        // ถ้าเกิน 30 นาที ให้เรียกคำสั่ง Logout (เอา alert และการรีเฟรชหน้าจอออก ปล่อยให้ Modal ใน App.tsx ทำงาน)
         logout();
-        alert("เซสชันหมดอายุเนื่องจากไม่มีการใช้งานเป็นเวลา 30 นาที กรุณาเข้าสู่ระบบใหม่");
-        window.location.href = '/login';
         return;
       }
 
@@ -84,7 +82,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (!data.valid) {
           localStorage.removeItem('currentUser');
           setCurrentUser(null);
-          window.location.href = '/login'; 
+          // เอา window.location.href ออก ปล่อยให้ React Router จัดการเตะไปหน้า Login เอง
         }
       } catch (error) {
         console.error('Session verification error:', error);
